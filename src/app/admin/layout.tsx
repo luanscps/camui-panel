@@ -1,13 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Sidebar from '@/components/sidebar'
 
 type AdminProfile = { is_admin: boolean }
 
-export default async function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -19,22 +16,23 @@ export default async function AdminLayout({
     .single()
 
   const profile = data as AdminProfile | null
-  if (error || !profile || !profile.is_admin) {
-    redirect('/dashboard')
-  }
+  if (error || !profile || !profile.is_admin) redirect('/dashboard')
+
+  const initials = (user.email ?? 'A')
+    .split('@')[0]
+    .slice(0, 2)
+    .toUpperCase()
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <nav className="bg-white border-b border-gray-200 px-8 py-3 flex items-center gap-6">
-        <span className="font-bold text-teal-700">Admin</span>
-        <a href="/admin" className="text-sm text-gray-600 hover:text-teal-700">Dashboard</a>
-        <a href="/admin/users" className="text-sm text-gray-600 hover:text-teal-700">Usuarios</a>
-        <a href="/admin/licenses" className="text-sm text-gray-600 hover:text-teal-700">Devices</a>
-        <div className="ml-auto">
-          <a href="/dashboard" className="text-sm text-gray-400 hover:text-gray-600">Voltar ao painel</a>
-        </div>
-      </nav>
-      <main className="p-8">{children}</main>
+    <div className="camui-layout">
+      <Sidebar
+        userEmail={user.email ?? ''}
+        isAdmin={true}
+        userInitials={initials}
+      />
+      <div className="camui-main">
+        {children}
+      </div>
     </div>
   )
 }

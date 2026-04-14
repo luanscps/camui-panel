@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import AdminUserActions from './UserActions'
 import Link from 'next/link'
 
+export const metadata = { title: 'Usuários — Admin' }
+
 type UserRow = {
   id: string
   email: string
@@ -16,57 +18,117 @@ type UserRow = {
 
 export default async function AdminUsersPage() {
   const supabase = await createClient()
-  const { data } = await supabase.from('admin_users_overview').select('*').order('registered_at', { ascending: false })
+  const { data } = await supabase
+    .from('admin_users_overview')
+    .select('*')
+    .order('registered_at', { ascending: false })
   const users = (data ?? []) as UserRow[]
 
+  const planBadge = (plan: string | null) =>
+    plan === 'PRO' ? 'badge-pro' : plan === 'BASIC' ? 'badge-basic' : 'badge-neutral'
+
+  const statusBadge = (status: string | null) => {
+    if (status === 'ACTIVE') return 'badge-success'
+    if (status === 'SUSPENDED') return 'badge-warning'
+    if (status === 'EXPIRED') return 'badge-error'
+    return 'badge-neutral'
+  }
+
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/admin" className="text-gray-400 hover:text-gray-600 text-sm">Admin</Link>
-        <h1 className="text-2xl font-bold text-gray-900">Usuarios</h1>
-        <span className="bg-gray-200 text-gray-600 text-xs px-2 py-1 rounded-full">{users.length} total</span>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Email</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Plano</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Status</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Devices</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Cadastro</th>
-              <th className="text-left px-4 py-3 text-gray-500 font-medium">Acoes</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {users.map((u) => (
-              <tr key={u.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <div className="font-medium text-gray-800">{u.email}</div>
-                  {u.is_admin && <span className="text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded">admin</span>}
-                </td>
-                <td className="px-4 py-3">
-                  <span className={'px-2 py-0.5 rounded-full text-xs font-semibold ' + (u.plan === 'PRO' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700')}>
-                    {u.plan ?? 'SEM LICENCA'}
-                  </span>
-                </td>
-                <td className="px-4 py-3">
-                  <span className={'px-2 py-0.5 rounded-full text-xs ' + (u.license_status === 'ACTIVE' ? 'bg-green-50 text-green-600' : u.license_status === 'SUSPENDED' ? 'bg-yellow-50 text-yellow-600' : 'bg-red-50 text-red-600')}>
-                    {u.license_status ?? '-'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-gray-600">{u.active_devices_count ?? 0} / {u.max_devices ?? '-'}</td>
-                <td className="px-4 py-3 text-gray-400 text-xs">{u.registered_at ? new Date(u.registered_at).toLocaleDateString('pt-BR') : '-'}</td>
-                <td className="px-4 py-3">
-                  {u.license_id && (
-                    <AdminUserActions licenseId={u.license_id} currentPlan={u.plan ?? 'BASIC'} currentStatus={u.license_status ?? 'ACTIVE'} />
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
+    <>
+      {/* Topbar */}
+      <header className="camui-topbar">
+        <nav className="camui-topbar-breadcrumb">
+          <Link href="/admin">Admin</Link>
+          <span>›</span>
+          <span style={{ color: 'var(--color-text)' }}>Usuários</span>
+        </nav>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span className="badge badge-neutral">{users.length} total</span>
+        </div>
+      </header>
+
+      {/* Content */}
+      <main className="camui-content">
+        <div style={{ marginBottom: '1.5rem' }}>
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>Usuários</h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Lista de todos os usuários registrados</p>
+        </div>
+
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {users.length === 0 ? (
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <h3>Nenhum usuário encontrado</h3>
+              <p>Ainda não há usuários cadastrados no sistema.</p>
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="camui-table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Plano</th>
+                    <th>Status</th>
+                    <th>Devices</th>
+                    <th>Cadastro</th>
+                    <th>Ações</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {users.map((u) => (
+                    <tr key={u.id}>
+                      <td>
+                        <div style={{ fontWeight: 500, color: 'var(--color-text)', fontSize: '0.8125rem' }}>
+                          {u.email}
+                        </div>
+                        {u.is_admin && (
+                          <span className="badge badge-admin" style={{ marginTop: '0.25rem' }}>admin</span>
+                        )}
+                      </td>
+                      <td>
+                        <span className={`badge ${planBadge(u.plan)}`}>
+                          {u.plan ?? 'Sem licença'}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`badge ${statusBadge(u.license_status)}`}>
+                          {u.license_status ?? '—'}
+                        </span>
+                      </td>
+                      <td style={{ fontVariantNumeric: 'tabular-nums', color: 'var(--color-text-muted)' }}>
+                        {u.active_devices_count ?? 0}
+                        <span style={{ color: 'var(--color-text-faint)' }}> / {u.max_devices ?? '—'}</span>
+                      </td>
+                      <td style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>
+                        {u.registered_at
+                          ? new Date(u.registered_at).toLocaleDateString('pt-BR')
+                          : '—'}
+                      </td>
+                      <td>
+                        {u.license_id && (
+                          <AdminUserActions
+                            licenseId={u.license_id}
+                            currentPlan={u.plan ?? 'BASIC'}
+                            currentStatus={u.license_status ?? 'ACTIVE'}
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </main>
+    </>
   )
 }

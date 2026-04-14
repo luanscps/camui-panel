@@ -1,6 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
+export const metadata = { title: 'Admin — CAMUI Panel' }
+
 type LicenseStats = {
   total_users: number
   total_basic: number
@@ -11,16 +13,24 @@ type LicenseStats = {
   total_expired: number
 }
 
-function StatCard({ label, value, color = 'gray' }: { label: string; value: number; color?: string }) {
-  const colors: Record<string, string> = {
-    gray: 'bg-white border-gray-200', blue: 'bg-blue-50 border-blue-200',
-    green: 'bg-green-50 border-green-200', purple: 'bg-purple-50 border-purple-200',
-    yellow: 'bg-yellow-50 border-yellow-200', red: 'bg-red-50 border-red-200',
-  }
+interface StatCardProps {
+  label: string
+  value: number
+  iconPath: string
+  accentColor: string
+  accentBg: string
+}
+
+function StatCard({ label, value, iconPath, accentColor, accentBg }: StatCardProps) {
   return (
-    <div className={`rounded-xl border p-4 ${colors[color] ?? colors['gray']}`}>
-      <p className="text-sm text-gray-500">{label}</p>
-      <p className="text-3xl font-bold text-gray-800 mt-1">{value}</p>
+    <div className="stat-card">
+      <div className="stat-icon" style={{ background: accentBg, color: accentColor }}>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d={iconPath}/>
+        </svg>
+      </div>
+      <div className="stat-value" style={{ color: accentColor }}>{value}</div>
+      <div className="stat-label">{label}</div>
     </div>
   )
 }
@@ -28,26 +38,93 @@ function StatCard({ label, value, color = 'gray' }: { label: string; value: numb
 export default async function AdminPage() {
   const supabase = await createClient()
   const { data } = await supabase.from('admin_license_stats').select('*').single()
-  const stats = (data ?? {}) as Partial<LicenseStats>
+  const s = (data ?? {}) as Partial<LicenseStats>
+
   return (
-    <div>
-      <h1 className="text-2xl font-bold text-gray-900 mb-2">Painel Admin</h1>
-      <p className="text-gray-500 mb-8">CamStreamer BR</p>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Usuarios"  value={stats.total_users   ?? 0} color="gray"   />
-        <StatCard label="Plano BASIC"     value={stats.total_basic   ?? 0} color="blue"   />
-        <StatCard label="Plano PRO"       value={stats.total_pro     ?? 0} color="green"  />
-        <StatCard label="Devices Ativos"  value={stats.total_devices ?? 0} color="purple" />
-      </div>
-      <div className="grid grid-cols-3 gap-4 mb-8">
-        <StatCard label="Licencas Ativas" value={stats.total_active    ?? 0} color="green"  />
-        <StatCard label="Suspensas"       value={stats.total_suspended ?? 0} color="yellow" />
-        <StatCard label="Expiradas"       value={stats.total_expired   ?? 0} color="red"    />
-      </div>
-      <div className="flex gap-4">
-        <Link href="/admin/users" className="px-4 py-2 bg-teal-700 text-white rounded-lg hover:bg-teal-800 transition text-sm">Gerenciar Usuarios</Link>
-        <Link href="/admin/licenses" className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 transition text-sm">Gerenciar Devices</Link>
-      </div>
-    </div>
+    <>
+      {/* Topbar */}
+      <header className="camui-topbar">
+        <nav className="camui-topbar-breadcrumb">
+          <span style={{ color: 'var(--color-text)', fontWeight: 600 }}>Admin</span>
+          <span>·</span>
+          <span>Visão Geral</span>
+        </nav>
+      </header>
+
+      {/* Content */}
+      <main className="camui-content">
+        <div style={{ marginBottom: '1.75rem' }}>
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>Painel Admin</h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>CamStreamer BR — visão geral do sistema</p>
+        </div>
+
+        {/* Stats grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+          <StatCard
+            label="Total Usuários"
+            value={s.total_users ?? 0}
+            iconPath="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"
+            accentColor="var(--color-text)"
+            accentBg="rgba(40,37,29,0.06)"
+          />
+          <StatCard
+            label="Plano BASIC"
+            value={s.total_basic ?? 0}
+            iconPath="M12 22C6.5 22 2 17.5 2 12S6.5 2 12 2s10 4.5 10 10-4.5 10-10 10zm0-14v4l3 3"
+            accentColor="#1d4ed8"
+            accentBg="#eff6ff"
+          />
+          <StatCard
+            label="Plano PRO"
+            value={s.total_pro ?? 0}
+            iconPath="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"
+            accentColor="var(--color-brand)"
+            accentBg="rgba(1,105,111,0.08)"
+          />
+          <StatCard
+            label="Devices Ativos"
+            value={s.total_devices ?? 0}
+            iconPath="M5 2h14a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm7 16h.01"
+            accentColor="#7c3aed"
+            accentBg="#f5f3ff"
+          />
+          <StatCard
+            label="Licenças Ativas"
+            value={s.total_active ?? 0}
+            iconPath="M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01l-3-3"
+            accentColor="var(--color-success)"
+            accentBg="var(--color-success-bg)"
+          />
+          <StatCard
+            label="Suspensas"
+            value={s.total_suspended ?? 0}
+            iconPath="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"
+            accentColor="var(--color-warning)"
+            accentBg="var(--color-warning-bg)"
+          />
+          <StatCard
+            label="Expiradas"
+            value={s.total_expired ?? 0}
+            iconPath="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z M9.5 9 12 11.5 14.5 9M9.5 14.5 12 12 14.5 14.5"
+            accentColor="var(--color-error)"
+            accentBg="var(--color-error-bg)"
+          />
+        </div>
+
+        {/* Acoes rapidas */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <div className="card-title">Ações Rápidas</div>
+              <div className="card-subtitle">Gerenciamento do sistema</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <Link href="/admin/users" className="btn btn-primary">Gerenciar Usuários</Link>
+            <Link href="/admin/licenses" className="btn btn-secondary">Gerenciar Devices / Licenças</Link>
+          </div>
+        </div>
+      </main>
+    </>
   )
 }
