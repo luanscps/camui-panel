@@ -7,11 +7,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
     .single()
+
+  const isAdmin = (profileData as { is_admin: boolean } | null)?.is_admin ?? false
 
   const initials = (user.email ?? 'U')
     .split('@')[0]
@@ -22,7 +24,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="camui-layout">
       <Sidebar
         userEmail={user.email ?? ''}
-        isAdmin={profile?.is_admin ?? false}
+        isAdmin={isAdmin}
         userInitials={initials}
       />
       <div className="camui-main">
