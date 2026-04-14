@@ -9,11 +9,13 @@ interface Props {
   currentStatus: string
 }
 
+type LicensePatch = TablesUpdate<'licenses'>
+
 export default function AdminUserActions({ licenseId, currentPlan, currentStatus }: Props) {
-  const supabase = createClient()
   const router = useRouter()
 
-  async function updateLicense(patch: TablesUpdate<'licenses'>) {
+  async function updateLicense(patch: LicensePatch) {
+    const supabase = createClient()
     await supabase.from('licenses').update(patch).eq('id', licenseId)
     router.refresh()
   }
