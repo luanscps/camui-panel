@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
-export const metadata = { title: 'Dashboard' }
+export const metadata = { title: 'Dashboard — CAMUI Panel' }
 
 type License = {
   id: string
@@ -12,7 +12,6 @@ type License = {
   expires_at: string | null
   max_devices: number
   created_at: string
-  updated_at: string
 }
 
 type Device = {
@@ -26,17 +25,14 @@ type Device = {
 
 export default async function DashboardPage() {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  // Buscar licenca do usuario (RLS garante que so ve a propria)
   const { data: license } = await supabase
     .from('licenses')
     .select('*')
     .single() as { data: License | null }
 
-  // Buscar devices ativados
   const { data: devices } = license
     ? await supabase
         .from('device_activations')
@@ -45,100 +41,137 @@ export default async function DashboardPage() {
         .order('last_seen_at', { ascending: false }) as { data: Device[] | null }
     : { data: [] as Device[] }
 
-  const planColor = license?.plan === 'PRO' ? '#01696f' : '#7a7974'
-  const planBg = license?.plan === 'PRO' ? '#f0fafb' : '#f5f5f4'
+  const statusBadge: Record<string, string> = {
+    ACTIVE: 'badge-success', SUSPENDED: 'badge-warning', EXPIRED: 'badge-error'
+  }
+
+  const planBadge = license?.plan === 'PRO' ? 'badge-pro' : 'badge-basic'
 
   return (
-    <div className="min-h-screen" style={{ background: '#f7f6f2' }}>
-      {/* Header */}
-      <header style={{ background: 'white', borderBottom: '1px solid rgba(40,37,29,0.08)' }}>
-        <div className="container flex items-center justify-between py-4">
-          <div className="flex items-center gap-3">
-            <svg width="32" height="32" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="8" fill="#01696f"/>
-              <circle cx="18" cy="18" r="7" stroke="white" strokeWidth="2"/>
-              <circle cx="18" cy="18" r="3" fill="white"/>
-              <path d="M26 12l4-3v14l-4-3V12z" fill="white"/>
-            </svg>
-            <span className="font-bold" style={{ color: '#28251d' }}>CamStreamer BR</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm" style={{ color: '#7a7974' }}>{user.email}</span>
-            <form action="/auth/signout" method="post">
-              <button type="submit" className="btn btn-secondary text-xs py-1.5 px-3">Sair</button>
-            </form>
-          </div>
-        </div>
+    <>
+      {/* Topbar */}
+      <header className="camui-topbar">
+        <nav className="camui-topbar-breadcrumb">
+          <span>Dashboard</span>
+        </nav>
       </header>
 
-      <main className="container py-10">
-        <h1 className="text-2xl font-bold mb-8" style={{ color: '#28251d' }}>Meu Painel</h1>
+      {/* Content */}
+      <main className="camui-content">
+        <div style={{ marginBottom: '1.75rem' }}>
+          <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
+            Meu Painel
+          </h1>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Bem-vindo de volta, {user.email}</p>
+        </div>
 
-        {/* Licenca */}
-        <div className="card mb-6">
-          <div className="flex items-start justify-between mb-4">
+        {/* Licença */}
+        <div className="card" style={{ marginBottom: '1.5rem' }}>
+          <div className="card-header">
             <div>
-              <h2 className="font-semibold text-lg" style={{ color: '#28251d' }}>Minha Licenca</h2>
-              <p className="text-sm mt-1" style={{ color: '#7a7974' }}>Status e plano atual</p>
+              <div className="card-title">Minha Licença</div>
+              <div className="card-subtitle">Status e plano atual</div>
             </div>
-            <span className="text-xs font-bold px-3 py-1 rounded-full" style={{ background: planBg, color: planColor }}>
-              {license?.plan || 'SEM LICENCA'}
-            </span>
+            <span className={`badge ${planBadge}`}>{license?.plan ?? 'SEM LICENÇA'}</span>
           </div>
-          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))' }}>
-            <div className="p-4 rounded-lg" style={{ background: '#f7f6f2' }}>
-              <div className="text-xs mb-1" style={{ color: '#7a7974' }}>Status</div>
-              <div className="font-semibold" style={{ color: license?.status === 'ACTIVE' ? '#437a22' : '#a12c7b' }}>
-                {license?.status || '-'}
+
+          <div className="info-row">
+            <div className="info-cell">
+              <div className="info-cell-label">Status</div>
+              <div className="info-cell-value">
+                <span className={`badge ${statusBadge[license?.status ?? ''] ?? 'badge-neutral'}`}>
+                  {license?.status ?? '—'}
+                </span>
               </div>
             </div>
-            <div className="p-4 rounded-lg" style={{ background: '#f7f6f2' }}>
-              <div className="text-xs mb-1" style={{ color: '#7a7974' }}>Devices</div>
-              <div className="font-semibold" style={{ color: '#28251d' }}>
-                {devices?.length || 0} / {license?.max_devices || 1}
+            <div className="info-cell">
+              <div className="info-cell-label">Dispositivos</div>
+              <div className="info-cell-value">
+                {devices?.length ?? 0} <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>/ {license?.max_devices ?? 1}</span>
               </div>
             </div>
-            <div className="p-4 rounded-lg" style={{ background: '#f7f6f2' }}>
-              <div className="text-xs mb-1" style={{ color: '#7a7974' }}>Expiracao</div>
-              <div className="font-semibold" style={{ color: '#28251d' }}>
-                {license?.expires_at ? new Date(license.expires_at).toLocaleDateString('pt-BR') : 'Nunca'}
+            <div className="info-cell">
+              <div className="info-cell-label">Expiração</div>
+              <div className="info-cell-value" style={{ fontSize: '0.875rem' }}>
+                {license?.expires_at
+                  ? new Date(license.expires_at).toLocaleDateString('pt-BR')
+                  : 'Vitalício'}
               </div>
             </div>
-            <div className="p-4 rounded-lg" style={{ background: '#f7f6f2' }}>
-              <div className="text-xs mb-1" style={{ color: '#7a7974' }}>RTMP</div>
-              <div className="font-semibold" style={{ color: license?.plan === 'PRO' ? '#437a22' : '#7a7974' }}>
-                {license?.plan === 'PRO' ? 'Habilitado' : 'Basico'}
+            <div className="info-cell">
+              <div className="info-cell-label">RTMP Avançado</div>
+              <div className="info-cell-value">
+                <span className={`badge ${license?.plan === 'PRO' ? 'badge-success' : 'badge-neutral'}`}>
+                  {license?.plan === 'PRO' ? 'Habilitado' : 'Básico'}
+                </span>
               </div>
             </div>
           </div>
+
           {license?.plan === 'BASIC' && (
-            <div className="mt-4 p-4 rounded-lg flex items-center justify-between" style={{ background: '#f0fafb', border: '1px solid #cedcd8' }}>
-              <p className="text-sm" style={{ color: '#01696f' }}>🚀 Faca upgrade para PRO e desbloqueie RTMP avancado, overlay e mais devices.</p>
-              <Link href="/upgrade" className="btn btn-primary text-xs py-1.5 px-4" style={{ whiteSpace: 'nowrap', marginLeft: '1rem' }}>Upgrade PRO</Link>
+            <div className="upgrade-banner">
+              <p>🚀 Faça upgrade para <strong>PRO</strong> e desbloqueie RTMP avançado, overlay personalizado e mais dispositivos.</p>
+              <Link href="/upgrade" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>Upgrade PRO</Link>
             </div>
           )}
         </div>
 
         {/* Devices */}
         <div className="card">
-          <h2 className="font-semibold text-lg mb-4" style={{ color: '#28251d' }}>Dispositivos Ativados</h2>
+          <div className="card-header">
+            <div>
+              <div className="card-title">Dispositivos Ativados</div>
+              <div className="card-subtitle">
+                {devices && devices.length > 0
+                  ? `${devices.length} dispositivo${devices.length > 1 ? 's' : ''} conectado${devices.length > 1 ? 's' : ''}`
+                  : 'Nenhum dispositivo ativo'}
+              </div>
+            </div>
+          </div>
+
           {!devices || devices.length === 0 ? (
-            <div className="text-center py-10" style={{ color: '#7a7974' }}>
-              <div className="text-4xl mb-3">📱</div>
-              <p className="font-medium mb-1">Nenhum dispositivo ativado</p>
-              <p className="text-sm">Abra o app CAMSTREAMER BR no seu Android e faca login para ativar.</p>
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="5" y="2" width="14" height="20" rx="2"/>
+                  <path d="M12 18h.01"/>
+                </svg>
+              </div>
+              <h3>Nenhum dispositivo ativado</h3>
+              <p>Abra o app CAMSTREAMER BR no seu Android e faça login para ativar automaticamente.</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {devices.map((device: Device) => (
-                <div key={device.id} className="flex items-center gap-4 p-4 rounded-lg" style={{ background: '#f7f6f2' }}>
-                  <div className="text-2xl">📱</div>
-                  <div className="flex-1">
-                    <div className="font-medium text-sm" style={{ color: '#28251d' }}>{device.device_name || 'Dispositivo Android'}</div>
-                    <div className="text-xs mt-0.5" style={{ color: '#7a7974' }}>ID: {device.device_id.substring(0, 16)}...</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {(devices as Device[]).map((device) => (
+                <div key={device.id} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.875rem',
+                  padding: '0.875rem 1rem',
+                  background: 'var(--color-surface-offset)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--color-border)'
+                }}>
+                  <div style={{
+                    width: 36, height: 36,
+                    borderRadius: 'var(--radius-md)',
+                    background: 'rgba(1,105,111,0.08)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'var(--color-brand)', flexShrink: 0
+                  }}>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <rect x="5" y="2" width="14" height="20" rx="2"/>
+                      <path d="M12 18h.01"/>
+                    </svg>
                   </div>
-                  <div className="text-xs" style={{ color: '#7a7974' }}>
-                    Visto: {new Date(device.last_seen_at).toLocaleDateString('pt-BR')}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                      {device.device_name || 'Dispositivo Android'}
+                    </div>
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
+                      ID: {device.device_id.substring(0, 20)}…
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>
+                    Último acesso: {new Date(device.last_seen_at).toLocaleDateString('pt-BR')}
                   </div>
                 </div>
               ))}
@@ -146,6 +179,6 @@ export default async function DashboardPage() {
           )}
         </div>
       </main>
-    </div>
+    </>
   )
 }
