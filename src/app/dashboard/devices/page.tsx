@@ -6,7 +6,7 @@ export default async function DevicesPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: license } = await supabase
+  const { data: licenseData } = await supabase
     .from('licenses')
     .select('plan')
     .eq('user_id', user.id)
@@ -18,9 +18,10 @@ export default async function DevicesPage() {
     .eq('user_id', user.id)
     .order('last_seen', { ascending: false })
 
+  const license: { plan: string } | null = licenseData ?? null
   const isPro = license?.plan === 'pro'
   const maxDevices = isPro ? 5 : 1
-  const activeCount = devices?.filter(d => d.status === 'active').length ?? 0
+  const activeCount = (devices ?? []).filter((d: { status: string }) => d.status === 'active').length
 
   return (
     <div className="camui-content">
@@ -78,7 +79,14 @@ export default async function DevicesPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '720px' }}>
-          {devices.map((device) => {
+          {devices.map((device: {
+            id: string
+            device_name?: string | null
+            device_model?: string | null
+            android_version?: string | null
+            last_seen?: string | null
+            status: string
+          }) => {
             const lastSeen = device.last_seen
               ? new Date(device.last_seen).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
               : '—'
