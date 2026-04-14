@@ -4,6 +4,26 @@ import Link from 'next/link'
 
 export const metadata = { title: 'Dashboard' }
 
+type License = {
+  id: string
+  user_id: string
+  plan: 'BASIC' | 'PRO'
+  status: 'ACTIVE' | 'SUSPENDED' | 'EXPIRED'
+  expires_at: string | null
+  max_devices: number
+  created_at: string
+  updated_at: string
+}
+
+type Device = {
+  id: string
+  license_id: string
+  device_id: string
+  device_name?: string
+  activated_at: string
+  last_seen_at: string
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
@@ -14,7 +34,7 @@ export default async function DashboardPage() {
   const { data: license } = await supabase
     .from('licenses')
     .select('*')
-    .single()
+    .single() as { data: License | null }
 
   // Buscar devices ativados
   const { data: devices } = license
@@ -22,8 +42,8 @@ export default async function DashboardPage() {
         .from('device_activations')
         .select('*')
         .eq('license_id', license.id)
-        .order('last_seen_at', { ascending: false })
-    : { data: [] }
+        .order('last_seen_at', { ascending: false }) as { data: Device[] | null }
+    : { data: [] as Device[] }
 
   const planColor = license?.plan === 'PRO' ? '#01696f' : '#7a7974'
   const planBg = license?.plan === 'PRO' ? '#f0fafb' : '#f5f5f4'
@@ -110,7 +130,7 @@ export default async function DashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {devices.map((device: { id: string; device_name?: string; device_id: string; last_seen_at: string }) => (
+              {devices.map((device: Device) => (
                 <div key={device.id} className="flex items-center gap-4 p-4 rounded-lg" style={{ background: '#f7f6f2' }}>
                   <div className="text-2xl">📱</div>
                   <div className="flex-1">
