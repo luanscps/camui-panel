@@ -1,13 +1,7 @@
 'use client'
 import { createClient } from '@/lib/supabase/client'
+import { type TablesUpdate } from '@/types/supabase'
 import { useRouter } from 'next/navigation'
-
-// Tipo espelho das colunas editáveis da tabela licenses
-type LicensePatch = {
-  plan?: string
-  status?: string
-  max_devices?: number
-}
 
 interface Props {
   licenseId: string
@@ -19,9 +13,8 @@ export default function AdminUserActions({ licenseId, currentPlan, currentStatus
   const supabase = createClient()
   const router = useRouter()
 
-  async function updateLicense(patch: LicensePatch) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase.from('licenses') as any).update(patch).eq('id', licenseId)
+  async function updateLicense(patch: TablesUpdate<'licenses'>) {
+    await supabase.from('licenses').update(patch).eq('id', licenseId)
     router.refresh()
   }
 
