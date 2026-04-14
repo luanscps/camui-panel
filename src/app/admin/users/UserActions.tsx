@@ -1,7 +1,6 @@
 'use client'
-import { createClient } from '@/lib/supabase/client'
-import { type TablesUpdate } from '@/types/supabase'
-import { useRouter } from 'next/navigation'
+import { useTransition } from 'react'
+import { updateLicenseAction } from './actions'
 
 interface Props {
   licenseId: string
@@ -9,47 +8,39 @@ interface Props {
   currentStatus: string
 }
 
-type LicensePatch = TablesUpdate<'licenses'>
-
 export default function AdminUserActions({ licenseId, currentPlan, currentStatus }: Props) {
-  const router = useRouter()
+  const [pending, startTransition] = useTransition()
 
-  async function updateLicense(patch: LicensePatch) {
-    const supabase = createClient()
-    await supabase.from('licenses').update(patch).eq('id', licenseId)
-    router.refresh()
+  function handle(patch: { plan?: string; status?: string; max_devices?: number }) {
+    startTransition(() => { updateLicenseAction(licenseId, patch) })
   }
 
   return (
-    <div className="flex gap-1 flex-wrap">
+    <div className="flex gap-1 flex-wrap opacity-100">
       {currentPlan !== 'PRO' && (
-        <button
-          onClick={() => updateLicense({ plan: 'PRO', max_devices: 3 })}
-          className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
-        >
+        <button disabled={pending}
+          onClick={() => handle({ plan: 'PRO', max_devices: 3 })}
+          className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50">
           UP PRO
         </button>
       )}
       {currentPlan === 'PRO' && (
-        <button
-          onClick={() => updateLicense({ plan: 'BASIC', max_devices: 1 })}
-          className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
+        <button disabled={pending}
+          onClick={() => handle({ plan: 'BASIC', max_devices: 1 })}
+          className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50">
           DOWN BASIC
         </button>
       )}
       {currentStatus === 'ACTIVE' ? (
-        <button
-          onClick={() => updateLicense({ status: 'SUSPENDED' })}
-          className="text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600"
-        >
+        <button disabled={pending}
+          onClick={() => handle({ status: 'SUSPENDED' })}
+          className="text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50">
           Suspender
         </button>
       ) : (
-        <button
-          onClick={() => updateLicense({ status: 'ACTIVE' })}
-          className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700"
-        >
+        <button disabled={pending}
+          onClick={() => handle({ status: 'ACTIVE' })}
+          className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50">
           Reativar
         </button>
       )}
