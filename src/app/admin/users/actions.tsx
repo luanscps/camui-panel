@@ -1,19 +1,22 @@
 'use server'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { type Database } from '@/types/supabase'
-
-type LicensePatch = Database['public']['Tables']['licenses']['Update']
 
 export async function updateLicenseAction(
   licenseId: string,
-  patch: LicensePatch
+  patch: {
+    plan?: string
+    status?: string
+    max_devices?: number
+    expires_at?: string | null
+  }
 ) {
   const supabase = await createClient()
-  const { error } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
     .from('licenses')
     .update(patch)
     .eq('id', licenseId)
-  if (error) throw new Error(error.message)
+  if (error) throw new Error((error as { message: string }).message)
   revalidatePath('/admin/users')
 }
