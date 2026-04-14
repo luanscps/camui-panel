@@ -14,11 +14,13 @@ export default async function AdminLayout({
 
   if (!user) redirect('/login')
 
-  const { data: profile, error } = await supabase
+  const { data, error } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
     .single()
+
+  const profile = data as { is_admin: boolean } | null
 
   if (error || !profile || !profile.is_admin) {
     redirect('/dashboard')
