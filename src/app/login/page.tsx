@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+// Componente interno que usa useSearchParams — precisa estar dentro de <Suspense>
+function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo') || '/dashboard'
@@ -34,6 +35,81 @@ export default function LoginPage() {
   }
 
   return (
+    <div className="card" style={{ background: 'white', border: 'none' }}>
+      <h1 className="text-xl font-bold mb-6" style={{ color: '#28251d' }}>Entrar na conta</h1>
+
+      {error && (
+        <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' }}>
+          {error}
+        </div>
+      )}
+
+      <form onSubmit={handleLogin} className="space-y-4">
+        <div>
+          <label htmlFor="email" className="block text-sm font-medium mb-1.5" style={{ color: '#28251d' }}>Email</label>
+          <input
+            id="email"
+            type="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            placeholder="seu@email.com"
+            required
+            className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none transition-all"
+            style={{ borderColor: '#d4d1ca', background: '#fafaf8' }}
+            onFocus={e => e.target.style.borderColor = '#01696f'}
+            onBlur={e => e.target.style.borderColor = '#d4d1ca'}
+          />
+        </div>
+        <div>
+          <label htmlFor="password" className="block text-sm font-medium mb-1.5" style={{ color: '#28251d' }}>Senha</label>
+          <input
+            id="password"
+            type="password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            placeholder="••••••••"
+            required
+            className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none transition-all"
+            style={{ borderColor: '#d4d1ca', background: '#fafaf8' }}
+            onFocus={e => e.target.style.borderColor = '#01696f'}
+            onBlur={e => e.target.style.borderColor = '#d4d1ca'}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn btn-primary w-full"
+          style={{ justifyContent: 'center', padding: '0.75rem', fontSize: '0.95rem', opacity: loading ? 0.7 : 1 }}
+        >
+          {loading ? 'Entrando...' : 'Entrar'}
+        </button>
+      </form>
+
+      <div className="mt-6 pt-6 border-t text-center text-sm" style={{ borderColor: '#e5e3df', color: '#7a7974' }}>
+        Nao tem conta?{' '}
+        <Link href="/register" className="font-medium" style={{ color: '#01696f' }}>Criar conta gratis</Link>
+      </div>
+    </div>
+  )
+}
+
+// Fallback enquanto o Suspense carrega
+function LoginFallback() {
+  return (
+    <div className="card" style={{ background: 'white', border: 'none', minHeight: 280 }}>
+      <div className="animate-pulse space-y-4">
+        <div className="h-6 bg-gray-200 rounded w-1/2" />
+        <div className="h-10 bg-gray-200 rounded" />
+        <div className="h-10 bg-gray-200 rounded" />
+        <div className="h-10 bg-gray-200 rounded" />
+      </div>
+    </div>
+  )
+}
+
+// Pagina raiz — sem useSearchParams direto aqui
+export default function LoginPage() {
+  return (
     <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'linear-gradient(135deg, #0f3638 0%, #01696f 100%)' }}>
       <div className="w-full max-w-md">
         {/* Logo */}
@@ -50,62 +126,10 @@ export default function LoginPage() {
           <p className="mt-2 text-sm" style={{ color: 'rgba(255,255,255,0.7)' }}>Acesse seu painel de licenca</p>
         </div>
 
-        {/* Card */}
-        <div className="card" style={{ background: 'white', border: 'none' }}>
-          <h1 className="text-xl font-bold mb-6" style={{ color: '#28251d' }}>Entrar na conta</h1>
-
-          {error && (
-            <div className="mb-4 p-3 rounded-lg text-sm" style={{ background: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca' }}>
-              {error}
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-1.5" style={{ color: '#28251d' }}>Email</label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                placeholder="seu@email.com"
-                required
-                className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none transition-all"
-                style={{ borderColor: '#d4d1ca', background: '#fafaf8' }}
-                onFocus={e => e.target.style.borderColor = '#01696f'}
-                onBlur={e => e.target.style.borderColor = '#d4d1ca'}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium mb-1.5" style={{ color: '#28251d' }}>Senha</label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                placeholder="••••••••"
-                required
-                className="w-full px-3 py-2.5 rounded-lg text-sm border outline-none transition-all"
-                style={{ borderColor: '#d4d1ca', background: '#fafaf8' }}
-                onFocus={e => e.target.style.borderColor = '#01696f'}
-                onBlur={e => e.target.style.borderColor = '#d4d1ca'}
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary w-full"
-              style={{ justifyContent: 'center', padding: '0.75rem', fontSize: '0.95rem', opacity: loading ? 0.7 : 1 }}
-            >
-              {loading ? 'Entrando...' : 'Entrar'}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t text-center text-sm" style={{ borderColor: '#e5e3df', color: '#7a7974' }}>
-            Nao tem conta?{' '}
-            <Link href="/register" className="font-medium" style={{ color: '#01696f' }}>Criar conta gratis</Link>
-          </div>
-        </div>
+        {/* Suspense obrigatorio para useSearchParams no Next.js 15 */}
+        <Suspense fallback={<LoginFallback />}>
+          <LoginForm />
+        </Suspense>
       </div>
     </div>
   )
