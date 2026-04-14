@@ -1,19 +1,29 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+type License = {
+  plan: string
+  status: string
+  expires_at: string | null
+  created_at: string | null
+  license_key: string | null
+}
+
 export default async function LicensePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: license } = await supabase
+  const { data: licenseData } = await supabase
     .from('licenses')
     .select('*')
     .eq('user_id', user.id)
     .single()
 
-  const isPro = license?.plan === 'pro'
-  const isActive = license?.status === 'active'
+  const license: License | null = licenseData ?? null
+
+  const isPro     = license?.plan   === 'pro'
+  const isActive  = license?.status === 'active'
 
   const expiresAt = license?.expires_at
     ? new Date(license.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -37,7 +47,13 @@ export default async function LicensePage() {
 
       <div style={{ display: 'grid', gap: '1.25rem', maxWidth: '720px' }}>
         {/* Plano atual */}
-        <div className="card" style={{ border: isPro ? '1px solid var(--color-brand-highlight)' : '1px solid var(--color-border)', background: isPro ? 'linear-gradient(135deg, #f0fafb 0%, #e8f5f6 100%)' : 'var(--color-surface)' }}>
+        <div
+          className="card"
+          style={{
+            border: isPro ? '1px solid var(--color-brand-highlight)' : '1px solid var(--color-border)',
+            background: isPro ? 'linear-gradient(135deg, #f0fafb 0%, #e8f5f6 100%)' : 'var(--color-surface)',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1.25rem' }}>
             <div>
               <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Plano atual</div>
@@ -47,7 +63,7 @@ export default async function LicensePage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
               <span className={`badge ${isActive ? 'badge-success' : 'badge-warning'}`}>
-                {isActive ? 'Ativa' : license?.status ?? 'Sem licença'}
+                {isActive ? 'Ativa' : (license?.status ?? 'Sem licença')}
               </span>
               {isPro && <span className="badge badge-pro">PRO</span>}
             </div>
@@ -93,14 +109,14 @@ export default async function LicensePage() {
               </tr>
             </thead>
             <tbody>
-              {[
+              {([
                 ['Dispositivos simultâneos', '1', '5'],
                 ['Qualidade de stream', '720p', '1080p / 4K'],
                 ['Suporte prioritário', '—', '✓'],
                 ['Sem watermark', '—', '✓'],
                 ['Configurações avançadas', '—', '✓'],
                 ['Acesso antecipado a features', '—', '✓'],
-              ].map(([feature, basic, pro]) => (
+              ] as [string, string, string][]).map(([feature, basic, pro]) => (
                 <tr key={feature}>
                   <td style={{ fontWeight: 500 }}>{feature}</td>
                   <td style={{ color: basic === '—' ? 'var(--color-text-faint)' : 'var(--color-text)' }}>{basic}</td>
