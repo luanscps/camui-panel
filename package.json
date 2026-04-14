@@ -1,1 +1,28 @@
-ewogICJuYW1lIjogImNhbXVpLXBhbmVsIiwKICAidmVyc2lvbiI6ICIwLjEuMCIsCiAgInByaXZhdGUiOiB0cnVlLAogICJzY3JpcHRzIjogewogICAgImRldiI6ICJuZXh0IGRldiIsCiAgICAiYnVpbGQiOiAibmV4dCBidWlsZCIsCiAgICAic3RhcnQiOiAibmV4dCBzdGFydCIsCiAgICAibGludCI6ICJuZXh0IGxpbnQiCiAgfSwKICAiZGVwZW5kZW5jaWVzIjogewogICAgIkBzdXBhYmFzZS9zc3IiOiAiXjAuNS4yIiwKICAgICJAc3VwYWJhc2Uvc3VwYWJhc2UtanMiOiAiXjIuNDkuNCIsCiAgICAibmV4dCI6ICIxNS4zLjgiLAogICAgInJlYWN0IjogIl4xOS4wLjAiLAogICAgInJlYWN0LWRvbSI6ICJeMTkuMC4wIgogIH0sCiAgImRldkRlcGVuZGVuY2llcyI6IHsKICAgICJAdHlwZXMvbm9kZSI6ICJeMjAiLAogICAgIkB0eXBlcy9yZWFjdCI6ICJeMTkiLAogICAgIkB0eXBlcy9yZWFjdC1kb20iOiAiXjE5IiwKICAgICJlc2xpbnQiOiAiXjkiLAogICAgImVzbGludC1jb25maWctbmV4dCI6ICIxNS4zLjIiLAogICAgInBvc3Rjc3MiOiAiXjgiLAogICAgInRhaWx3aW5kY3NzIjogIl4zLjQuMSIsCiAgICAidHlwZXNjcmlwdCI6ICJeNSIKICB9Cn0K
+{
+  "name": "camui-panel",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@supabase/ssr": "^0.5.2",
+    "@supabase/supabase-js": "^2.49.4",
+    "next": "15.3.8",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "15.3.0",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5"
+  }
+}
