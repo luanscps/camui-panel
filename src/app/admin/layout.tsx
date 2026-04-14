@@ -8,16 +8,21 @@ export default async function AdminLayout({
 }) {
   const supabase = await createClient()
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profile, error } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
     .single()
 
-  if (!profile?.is_admin) redirect('/dashboard')
+  if (error || !profile || !profile.is_admin) {
+    redirect('/dashboard')
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
