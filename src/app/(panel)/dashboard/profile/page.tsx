@@ -5,19 +5,18 @@ export const metadata = { title: 'Perfil — CAMUI Panel' }
 
 type Profile = {
   full_name: string | null
-  role: string | null
+  is_admin: boolean
   created_at: string | null
 }
 
 export default async function ProfilePage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = (await createClient()) as any
+  const supabase = (await createClient()) as any // eslint-disable-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, created_at')
+    .select('full_name, is_admin, created_at')
     .eq('id', user.id)
     .single() as { data: Profile | null }
 
@@ -43,12 +42,28 @@ export default async function ProfilePage() {
           </div>
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>Função</div>
-            <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>{profile?.role === 'admin' ? 'Administrador' : 'Usuário'}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>
+                {profile?.is_admin ? 'Administrador' : 'Usuário'}
+              </div>
+              {profile?.is_admin && (
+                <span style={{
+                  fontSize: '0.65rem', fontWeight: 700,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                  color: 'var(--color-primary)',
+                  background: 'var(--color-primary-highlight)',
+                  padding: '0.15rem 0.5rem',
+                  borderRadius: 'var(--radius-full)'
+                }}>Admin</span>
+              )}
+            </div>
           </div>
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>Membro desde</div>
             <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>
-              {profile?.created_at ? new Date(profile.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }) : '—'}
+              {profile?.created_at
+                ? new Date(profile.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
+                : '—'}
             </div>
           </div>
         </div>
