@@ -3,19 +3,33 @@ import RevokeButton from './RevokeButton'
 
 export const metadata = { title: 'Licenças — CAMUI Panel' }
 
+type License = {
+  id: string
+  plan: string
+  status: string
+  expires_at: string | null
+  user_id: string
+}
+
+type Profile = {
+  id: string
+  full_name: string | null
+}
+
 export default async function AdminLicensesPage() {
-  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any
 
   const { data: licenses } = await supabase
     .from('licenses')
     .select('id, plan, status, expires_at, user_id')
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false }) as { data: License[] | null }
 
-  const userIds = licenses?.map(l => l.user_id) ?? []
+  const userIds = licenses?.map((l: License) => l.user_id) ?? []
   const { data: profiles } = await supabase
     .from('profiles')
     .select('id, full_name')
-    .in('id', userIds)
+    .in('id', userIds) as { data: Profile[] | null }
 
   return (
     <main className="camui-content">
@@ -35,8 +49,8 @@ export default async function AdminLicensesPage() {
               </tr>
             </thead>
             <tbody>
-              {licenses?.map(lic => {
-                const profile = profiles?.find(p => p.id === lic.user_id)
+              {licenses?.map((lic: License) => {
+                const profile = profiles?.find((p: Profile) => p.id === lic.user_id)
                 return (
                   <tr key={lic.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     <td style={{ padding: '0.75rem 1rem' }}>{profile?.full_name ?? lic.user_id.slice(0, 8) + '…'}</td>
