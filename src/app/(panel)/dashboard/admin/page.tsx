@@ -1,18 +1,11 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import type { Database } from '@/types/database'
 import Link from 'next/link'
 
 export const metadata = { title: 'Admin — CAMUI Panel' }
 
-type LicenseStats = {
-  total_users: number
-  total_basic: number
-  total_pro: number
-  total_devices: number
-  total_active: number
-  total_suspended: number
-  total_expired: number
-}
+type LicenseStats = Database['public']['Views']['admin_license_stats']['Row']
 
 interface StatCardProps {
   label: string
@@ -37,23 +30,22 @@ function StatCard({ label, value, iconPath, accentColor, accentBg }: StatCardPro
 }
 
 export default async function AdminPage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = (await createClient()) as any
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('is_admin')
     .eq('id', user.id)
-    .single() as { data: { role: string | null } | null }
+    .single() as unknown as { data: { is_admin: boolean } | null }
 
-  if (profile?.role !== 'admin') redirect('/dashboard')
+  if (!profile?.is_admin) redirect('/dashboard')
 
   const { data } = await supabase
     .from('admin_license_stats')
     .select('*')
-    .single() as { data: Partial<LicenseStats> | null }
+    .single() as unknown as { data: Partial<LicenseStats> | null }
 
   const s = data ?? {}
 

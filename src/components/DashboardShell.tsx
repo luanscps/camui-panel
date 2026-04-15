@@ -8,7 +8,7 @@ import { useRouter } from 'next/navigation'
 
 type Props = {
   user: { email: string; id: string }
-  profile: { full_name: string | null; role: string }
+  profile: { full_name: string | null; is_admin: boolean }
   license: { plan: string; status: string } | null
   children: React.ReactNode
 }
@@ -41,7 +41,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  const isAdmin = profile.role === 'admin'
+  const isAdmin = profile.is_admin === true
   const isPro   = license?.plan === 'pro'
 
   const initials = (profile.full_name ?? user.email)
