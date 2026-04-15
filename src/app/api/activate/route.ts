@@ -27,7 +27,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-// Usa service_role para bypass de RLS — seguro pois a rota valida a license_key
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -35,15 +34,23 @@ const supabaseAdmin = createClient(
 )
 
 type ActivateBody = {
-  license_key:     string
-  device_name?:    string
-  device_brand?:   string
-  device_model?:   string
+  license_key:      string
+  device_name?:     string
+  device_brand?:    string
+  device_model?:    string
   device_hardware?: string
   android_version?: string
-  sdk_int?:        number
-  android_id:      string
-  app_version?:    string
+  sdk_int?:         number
+  android_id:       string
+  app_version?:     string
+}
+
+/** Gera UUID v4 sem dependência externa */
+function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16)
+  })
 }
 
 export async function POST(req: NextRequest) {
@@ -117,20 +124,20 @@ export async function POST(req: NextRequest) {
   ].join('|')
 
   // ---------- upsert do dispositivo ----------
+  const now = new Date().toISOString()
+
   const upsertData = {
-    license_id:       license.id,
-    android_id:       android_id,
-    device_name:      body.device_name     ?? null,
-    device_brand:     body.device_brand    ?? null,
-    device_model:     body.device_model    ?? null,
-    device_hardware:  body.device_hardware ?? null,
-    android_version:  body.android_version ?? null,
-    sdk_int:          body.sdk_int         ?? null,
-    app_version:      body.app_version     ?? null,
-    fingerprint:      fingerprint,
-    last_seen:        new Date().toISOString(),
-    // activated_at só é setado na primeira inserção
-    ...(existingDevice ? {} : { activated_at: new Date().toISOString() }),
+    license_id:      license.id,
+    android_id:      android_id,
+    device_name:     body.device_name     ?? null,
+    device_brand:    body.device_brand    ?? null,
+    device_model:    body.device_model    ?? null,
+    device_hardware: body.device_hardware ?? null,
+    android_version: body.android_version ?? null,
+    sdk_int:         body.sdk_int         ?? null,
+    app_version:     body.app_version     ?? null,
+    fingerprint:     fingerprint,
+    last_seen:       now,
   }
 
   const { data: upserted, error: upsertErr } = existingDevice
@@ -142,7 +149,11 @@ export async function POST(req: NextRequest) {
         .single()
     : await supabaseAdmin
         .from('device_activations')
-        .insert(upsertData)
+        .insert({
+          ...upsertData,
+          device_id:    uuidv4(),  // coluna NOT NULL legada — gerada aqui
+          activated_at: now,
+        })
         .select('id')
         .single()
 
@@ -153,8 +164,8 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     ok:          true,
-    plan:        license.plan        as string,
-    max_devices: maxDevices          as number,
-    device_id:   upserted.id        as string,
+    plan:        license.plan  as string,
+    max_devices: maxDevices    as number,
+    device_id:   upserted.id  as string,
   })
 }
