@@ -9,7 +9,7 @@ async function assertAdmin() {
   if (!user) throw new Error('Não autenticado')
   const { data: profile } = await supabase
     .from('profiles').select('is_admin').eq('id', user.id).single()
-  if (!profile?.is_admin) throw new Error('Acesso negado')
+  if (!profile || !profile.is_admin) throw new Error('Acesso negado')
   return supabase
 }
 
