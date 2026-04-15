@@ -3,13 +3,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-async function assertAdmin() {
+async function assertAdmin(): Promise<void> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
   const { data: isAdmin } = await supabase.rpc('is_admin')
   if (!isAdmin) throw new Error('Acesso negado')
-  return supabase
 }
 
 export async function createLicenseAction(data: {
@@ -19,7 +18,8 @@ export async function createLicenseAction(data: {
   maxDevices: number
   expiresAt: string | null
 }) {
-  const supabase = await assertAdmin()
+  await assertAdmin()
+  const supabase = await createClient()
   const { error } = await supabase.from('licenses').insert({
     user_id: data.userId,
     plan: data.plan,
@@ -40,7 +40,8 @@ export async function updateLicenseAction(data: {
   maxDevices: number
   expiresAt: string | null
 }) {
-  const supabase = await assertAdmin()
+  await assertAdmin()
+  const supabase = await createClient()
   const { error } = await supabase.from('licenses').update({
     plan: data.plan,
     status: data.status,
@@ -54,7 +55,8 @@ export async function updateLicenseAction(data: {
 }
 
 export async function deleteLicenseAction(licenseId: string) {
-  const supabase = await assertAdmin()
+  await assertAdmin()
+  const supabase = await createClient()
   await supabase.from('device_activations').delete().eq('license_id', licenseId)
   const { error } = await supabase.from('licenses').delete().eq('id', licenseId)
   if (error) throw new Error(`Erro ao deletar licença: ${error.message}`)
