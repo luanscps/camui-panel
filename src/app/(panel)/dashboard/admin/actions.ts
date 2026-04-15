@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { type TablesInsert, type TablesUpdate } from '@/types/database'
 import { revalidatePath } from 'next/cache'
 
 async function assertAdmin(): Promise<void> {
@@ -20,13 +21,14 @@ export async function createLicenseAction(data: {
 }) {
   await assertAdmin()
   const supabase = await createClient()
-  const { error } = await supabase.from('licenses').insert({
+  const values: TablesInsert<'licenses'> = {
     user_id: data.userId,
     plan: data.plan,
     status: data.status,
     max_devices: data.maxDevices,
     expires_at: data.expiresAt || null,
-  })
+  }
+  const { error } = await supabase.from('licenses').insert(values)
   if (error) throw new Error(`Erro ao criar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
@@ -42,12 +44,13 @@ export async function updateLicenseAction(data: {
 }) {
   await assertAdmin()
   const supabase = await createClient()
-  const { error } = await supabase.from('licenses').update({
+  const values: TablesUpdate<'licenses'> = {
     plan: data.plan,
     status: data.status,
     max_devices: data.maxDevices,
     expires_at: data.expiresAt || null,
-  }).eq('id', data.licenseId)
+  }
+  const { error } = await supabase.from('licenses').update(values).eq('id', data.licenseId)
   if (error) throw new Error(`Erro ao atualizar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
