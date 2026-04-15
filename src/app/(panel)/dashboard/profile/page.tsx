@@ -3,8 +3,15 @@ import { redirect } from 'next/navigation'
 
 export const metadata = { title: 'Perfil — CAMUI Panel' }
 
+type Profile = {
+  full_name: string | null
+  role: string | null
+  created_at: string | null
+}
+
 export default async function ProfilePage() {
-  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -12,7 +19,7 @@ export default async function ProfilePage() {
     .from('profiles')
     .select('full_name, role, created_at')
     .eq('id', user.id)
-    .single()
+    .single() as { data: Profile | null }
 
   return (
     <main className="camui-content">
