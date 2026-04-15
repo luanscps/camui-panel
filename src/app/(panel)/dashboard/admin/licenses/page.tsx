@@ -8,8 +8,14 @@ export default async function AdminLicensesPage() {
 
   const { data: licenses } = await supabase
     .from('licenses')
-    .select('id, plan, status, expires_at, user_id, profiles(full_name)')
+    .select('id, plan, status, expires_at, user_id')
     .order('created_at', { ascending: false })
+
+  const userIds = licenses?.map(l => l.user_id) ?? []
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', userIds)
 
   return (
     <main className="camui-content">
@@ -30,7 +36,7 @@ export default async function AdminLicensesPage() {
             </thead>
             <tbody>
               {licenses?.map(lic => {
-                const profile = Array.isArray(lic.profiles) ? lic.profiles[0] : lic.profiles
+                const profile = profiles?.find(p => p.id === lic.user_id)
                 return (
                   <tr key={lic.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     <td style={{ padding: '0.75rem 1rem' }}>{profile?.full_name ?? lic.user_id.slice(0, 8) + '…'}</td>
