@@ -11,7 +11,7 @@ type License = {
 type Profile = { id: string; full_name: string | null }
 
 export default async function AdminLicensesPage() {
-  const supabase = (await createClient()) as any // eslint-disable-line
+  const supabase = await createClient()
 
   const { data: licenses } = await supabase
     .from('licenses')
@@ -44,7 +44,6 @@ export default async function AdminLicensesPage() {
         <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{licenses?.length ?? 0} licenças no sistema</p>
       </div>
 
-      {/* Alertas */}
       {expiringSoon.length > 0 && (
         <div style={{ marginBottom: '1rem', padding: '0.875rem 1.25rem', background: 'var(--color-warning-bg)', border: '1px solid rgba(150,66,25,0.2)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <span style={{ fontSize: '1rem' }}>⚠️</span>

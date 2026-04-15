@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 async function assertAdmin() {
-  const supabase = (await createClient()) as any // eslint-disable-line
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
   const { data: profile } = await supabase

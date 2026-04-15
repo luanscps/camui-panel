@@ -13,7 +13,7 @@ export default async function AdminUsersPage() {
   if (!user) redirect('/login')
 
   const { data: profile } = await supabase
-    .from('profiles').select('is_admin').eq('id', user.id).single() as unknown as { data: { is_admin: boolean } | null }
+    .from('profiles').select('is_admin').eq('id', user.id).single()
   if (!profile?.is_admin) redirect('/dashboard')
 
   const { data: users, error } = await supabase
@@ -40,7 +40,7 @@ export default async function AdminUsersPage() {
         </div>
       )}
 
-      {!error && <UsersTable users={(users ?? []) as any} />} {/* eslint-disable-line */}
+      {!error && <UsersTable users={users ?? []} />}
     </main>
   )
 }

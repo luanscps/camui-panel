@@ -52,7 +52,7 @@ function isOnline(dateStr: string | null): boolean {
 }
 
 export default async function DevicesPage() {
-  const supabase = (await createClient()) as any // eslint-disable-line
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -70,7 +70,7 @@ export default async function DevicesPage() {
         .order('last_seen', { ascending: false })
     : { data: null }
 
-  const devices: ActivationRow[] = activations ?? []
+  const devices: ActivationRow[] = (activations ?? []) as ActivationRow[]
   const isPro       = license?.plan === 'PRO'
   const maxDevices  = license?.max_devices ?? (isPro ? 5 : 1)
   const activeCount = devices.length
@@ -197,8 +197,6 @@ export default async function DevicesPage() {
                       <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text)' }}>
                         {brandModel || 'Dispositivo Android'}
                       </span>
-
-                      {/* Badge de status da sub-licença */}
                       <span style={{
                         fontSize: '0.6875rem', fontWeight: 600,
                         color: isSuspended ? 'var(--color-warning)' : online ? 'var(--color-success)' : 'var(--color-text-muted)',
@@ -210,7 +208,6 @@ export default async function DevicesPage() {
                       </span>
                     </div>
 
-                    {/* Sub-licença key */}
                     {device.sub_license_key && (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginTop: '0.25rem' }}>
                         <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-faint)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Sub-licença</span>

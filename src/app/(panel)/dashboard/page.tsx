@@ -55,14 +55,14 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await supabase
     .from('profiles').select('full_name').eq('id', user.id).single()
 
-  const { data: license } = await (supabase as any)
+  const { data: license } = await supabase
     .from('licenses').select('*').eq('user_id', user.id).maybeSingle() as { data: License | null }
 
   const { data: devices } = license
-    ? await (supabase as any)
+    ? await supabase
         .from('device_activations')
         .select('id, device_name, device_brand, device_model, android_version, android_id, sub_license_key, status, activated_at, last_seen')
         .eq('license_id', license.id)
@@ -323,7 +323,6 @@ export default async function DashboardPage() {
                     onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-offset)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
                   >
-                    {/* Dispositivo */}
                     <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
                         <div style={{ width: 30, height: 30, borderRadius: 'var(--radius-sm)', background: 'rgba(1,105,111,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', flexShrink: 0 }}>
@@ -337,40 +336,33 @@ export default async function DashboardPage() {
                         </span>
                       </div>
                     </td>
-                    {/* Marca */}
                     <td style={{ padding: '0.75rem', color: 'var(--color-text)', whiteSpace: 'nowrap' }}>
                       {device.device_brand ?? <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                     </td>
-                    {/* Modelo */}
                     <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
                       {device.device_model ?? <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                     </td>
-                    {/* Android version */}
                     <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
                       {device.android_version
                         ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(1,105,111,0.08)', color: 'var(--color-primary)', fontSize: '0.75rem', fontWeight: 600 }}>Android {device.android_version}</span>
                         : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                     </td>
-                    {/* android_id */}
                     <td style={{ padding: '0.75rem' }}>
                       {device.android_id
                         ? <code style={{ fontSize: '0.7rem', background: 'var(--color-surface-offset)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>{device.android_id}</code>
                         : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                     </td>
-                    {/* sub_license_key */}
                     <td style={{ padding: '0.75rem' }}>
                       {device.sub_license_key
                         ? <code style={{ fontSize: '0.7rem', background: 'var(--color-surface-offset)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{device.sub_license_key}</code>
                         : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
                     </td>
-                    {/* Status */}
                     <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', fontWeight: 600, color: deviceStatusColor(device.status) }}>
                         <span style={{ width: 6, height: 6, borderRadius: '50%', background: deviceStatusColor(device.status), display: 'inline-block' }} />
                         {deviceStatusLabel(device.status)}
                       </span>
                     </td>
-                    {/* Último acesso */}
                     <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
                       {device.last_seen
                         ? new Date(device.last_seen).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
