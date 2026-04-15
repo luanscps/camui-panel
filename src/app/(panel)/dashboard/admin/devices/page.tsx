@@ -1,110 +1,87 @@
 import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import DeviceActionsClient from './DeviceActionsClient'
+
+export const metadata = { title: 'Dispositivos — CAMUI Panel' }
 
 type DeviceRow = {
   id: string
-  android_id: string | null
+  device_name: string | null
   device_brand: string | null
   device_model: string | null
   android_version: string | null
-  status: 'active' | 'suspended' | 'revoked'
+  android_id: string | null
+  status: string
+  license_key: string | null
   last_seen_at: string | null
-  created_at: string
-  sub_license_id: string | null
-  profiles: { full_name: string | null; email: string | null } | null
-  sub_licenses: {
-    id: string
-    licenses: { plan: string; status: string } | null
-  } | null
+  created_at: string | null
+  license_id: string
+  licenses: { plan: string; user_id: string } | null
 }
 
-const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
-  active:    { label: 'Ativo',      color: 'var(--color-success)', bg: 'rgba(67,122,34,0.1)' },
-  suspended: { label: 'Suspenso',   color: 'var(--color-warning)', bg: 'rgba(218,113,1,0.1)' },
-  revoked:   { label: 'Revogado',   color: 'var(--color-error)',   bg: 'rgba(161,44,123,0.1)' },
-}
-
-function fmt(date: string | null) {
-  if (!date) return '—'
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  }).format(new Date(date))
-}
+type Profile = { id: string; full_name: string | null }
 
 export default async function AdminDevicesPage() {
-  const supabase = await createClient()
-
-  const { data: { user } } = await supabase.auth.getUser()
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('is_admin')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.is_admin) redirect('/dashboard')
+  const supabase = (await createClient()) as any // eslint-disable-line
 
   const { data: devices } = await supabase
-    .from('devices')
+    .from('device_activations')
     .select(`
-      id,
-      android_id,
-      device_brand,
-      device_model,
-      android_version,
-      status,
-      last_seen_at,
-      created_at,
-      sub_license_id,
-      profiles ( full_name, email ),
-      sub_licenses (
-        id,
-        licenses ( plan, status )
-      )
+      id, device_name, device_brand, device_model,
+      android_version, android_id, status,
+      license_key, last_seen_at, created_at, license_id,
+      licenses ( plan, user_id )
     `)
-    .order('created_at', { ascending: false })
+    .order('created_at', { ascending: false }) as { data: DeviceRow[] | null }
 
-  const rows = (devices ?? []) as DeviceRow[]
+  const userIds = [...new Set(
+    devices?.map((d) => d.licenses?.user_id).filter(Boolean) ?? []
+  )]
 
-  const total     = rows.length
-  const active    = rows.filter(d => d.status === 'active').length
-  const suspended = rows.filter(d => d.status === 'suspended').length
-  const revoked   = rows.filter(d => d.status === 'revoked').length
+  const { data: profiles } = userIds.length
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', userIds) as { data: Profile[] | null }
+    : { data: [] as Profile[] }
+
+  const total     = devices?.length ?? 0
+  const ativos    = devices?.filter(d => d.status === 'ACTIVE').length ?? 0
+  const suspensos = devices?.filter(d => d.status === 'SUSPENDED').length ?? 0
+  const revogados = devices?.filter(d => d.status === 'REVOKED').length ?? 0
 
   const kpis = [
-    { label: 'Total',      value: total,     color: 'var(--color-text)' },
-    { label: 'Ativos',     value: active,    color: 'var(--color-success)' },
-    { label: 'Suspensos',  value: suspended, color: 'var(--color-warning)' },
-    { label: 'Revogados',  value: revoked,   color: 'var(--color-error)' },
+    { label: 'Total',     value: total,     color: 'var(--color-primary)' },
+    { label: 'Ativos',    value: ativos,    color: 'var(--color-success)' },
+    { label: 'Suspensos', value: suspensos, color: 'var(--color-warning)' },
+    { label: 'Revogados', value: revogados, color: 'var(--color-error)'   },
   ]
 
   return (
-    <main style={{ padding: 'var(--space-6)', maxWidth: '100%' }}>
-      <h1 style={{ fontSize: 'var(--text-xl)', fontWeight: 700, marginBottom: 'var(--space-6)', color: 'var(--color-text)' }}>
-        Dispositivos
-      </h1>
+    <main className="camui-content">
+      <div style={{ marginBottom: '1.75rem' }}>
+        <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
+          Dispositivos
+        </h1>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+          Gerencie as sub-licenças de cada dispositivo cadastrado no sistema
+        </p>
+      </div>
 
       {/* KPIs */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))',
-        gap: 'var(--space-4)',
-        marginBottom: 'var(--space-8)',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))',
+        gap: '1rem',
+        marginBottom: '1.75rem',
       }}>
         {kpis.map(k => (
-          <div key={k.label} style={{
-            background: 'var(--color-surface)',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-lg)',
-            padding: 'var(--space-4) var(--space-5)',
-          }}>
-            <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', marginBottom: 'var(--space-1)', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 600 }}>
-              {k.label}
-            </div>
-            <div style={{ fontSize: 'var(--text-xl)', fontWeight: 700, color: k.color, fontVariantNumeric: 'tabular-nums' }}>
+          <div key={k.label} className="card" style={{ padding: '1rem 1.25rem' }}>
+            <div style={{
+              fontSize: '0.7rem', fontWeight: 600,
+              textTransform: 'uppercase', letterSpacing: '0.05em',
+              color: 'var(--color-text-muted)', marginBottom: '0.375rem',
+            }}>{k.label}</div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: k.color, lineHeight: 1 }}>
               {k.value}
             </div>
           </div>
@@ -112,84 +89,138 @@ export default async function AdminDevicesPage() {
       </div>
 
       {/* Tabela */}
-      <div style={{
-        background: 'var(--color-surface)',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-lg)',
-        overflow: 'hidden',
-      }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 'var(--text-sm)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
-              <tr style={{ background: 'var(--color-surface-offset)', borderBottom: '1px solid var(--color-border)' }}>
-                {['Marca', 'Modelo', 'Android', 'Android ID', 'Usuário', 'Plano', 'Sub-licença', 'Status', 'Último acesso', 'Ações'].map(h => (
+              <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-offset)' }}>
+                {[
+                  'Dispositivo', 'Marca / Modelo', 'Android', 'Android ID',
+                  'Usuário', 'Plano', 'Sub-licença', 'Status', 'Último acesso', 'Ações',
+                ].map(h => (
                   <th key={h} style={{
-                    padding: 'var(--space-3) var(--space-4)',
-                    textAlign: 'left',
-                    fontWeight: 600,
-                    fontSize: 'var(--text-xs)',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.05em',
-                    color: 'var(--color-text-muted)',
-                    whiteSpace: 'nowrap',
+                    textAlign: 'left', padding: '0.75rem 1rem',
+                    fontWeight: 600, color: 'var(--color-text-muted)',
+                    fontSize: '0.7rem', textTransform: 'uppercase',
+                    letterSpacing: '0.05em', whiteSpace: 'nowrap',
                   }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.length === 0 && (
+              {!devices?.length && (
                 <tr>
-                  <td colSpan={10} style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                    Nenhum dispositivo registrado.
+                  <td colSpan={10} style={{
+                    padding: '3rem', textAlign: 'center',
+                    color: 'var(--color-text-muted)',
+                  }}>
+                    Nenhum dispositivo cadastrado ainda
                   </td>
                 </tr>
               )}
-              {rows.map((d, i) => {
-                const badge = STATUS_LABEL[d.status] ?? STATUS_LABEL.revoked
-                const plan  = d.sub_licenses?.licenses?.plan ?? '—'
-                const subId = d.sub_license_id ? d.sub_license_id.slice(0, 8) + '...' : '—'
-                const userLabel = d.profiles?.full_name ?? d.profiles?.email ?? '—'
+              {devices?.map((dev) => {
+                const profile = profiles?.find((p: Profile) => p.id === dev.licenses?.user_id)
+                const statusColor =
+                  dev.status === 'ACTIVE'    ? 'var(--color-success)' :
+                  dev.status === 'SUSPENDED' ? 'var(--color-warning)' :
+                                               'var(--color-error)'
+                const lastSeen = dev.last_seen_at ? new Date(dev.last_seen_at) : null
+                const minutesAgo = lastSeen
+                  ? Math.floor((Date.now() - lastSeen.getTime()) / 60000)
+                  : null
+                const isOnline = minutesAgo !== null && minutesAgo < 5
 
                 return (
-                  <tr key={d.id} style={{
-                    borderBottom: i < rows.length - 1 ? '1px solid var(--color-divider)' : 'none',
-                    transition: 'background 0.12s',
-                  }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-offset)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = '')}
-                  >
-                    <td style={tdStyle}>{d.device_brand ?? '—'}</td>
-                    <td style={tdStyle}>{d.device_model ?? '—'}</td>
-                    <td style={tdStyle}>{d.android_version ?? '—'}</td>
-                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                      {d.android_id ?? '—'}
+                  <tr key={dev.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+
+                    {/* Dispositivo */}
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <span style={{
+                          width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                          display: 'inline-block',
+                          background: isOnline ? 'var(--color-success)' : 'var(--color-border)',
+                        }} />
+                        {dev.device_name ?? (
+                          <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>Sem nome</span>
+                        )}
+                      </div>
                     </td>
-                    <td style={tdStyle}>{userLabel}</td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        fontSize: '0.7rem', fontWeight: 700,
-                        textTransform: 'uppercase', letterSpacing: '0.04em',
-                        color: plan === 'PRO' ? 'var(--color-primary)' : 'var(--color-text-muted)',
-                      }}>{plan}</span>
+
+                    {/* Marca / Modelo */}
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      {[dev.device_brand, dev.device_model].filter(Boolean).join(' / ') || '—'}
                     </td>
-                    <td style={{ ...tdStyle, fontFamily: 'monospace', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                      {subId}
+
+                    {/* Android */}
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      {dev.android_version ? `Android ${dev.android_version}` : '—'}
                     </td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        fontSize: '0.7rem', fontWeight: 600,
-                        padding: '0.2rem 0.5rem',
-                        borderRadius: '9999px',
-                        background: badge.bg,
-                        color: badge.color,
-                        whiteSpace: 'nowrap',
-                      }}>{badge.label}</span>
+
+                    {/* Android ID */}
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      <code style={{
+                        background: 'var(--color-surface-offset)',
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.7rem',
+                      }}>
+                        {dev.android_id ? dev.android_id.slice(0, 12) + '…' : '—'}
+                      </code>
                     </td>
-                    <td style={{ ...tdStyle, whiteSpace: 'nowrap', color: 'var(--color-text-muted)' }}>
-                      {fmt(d.last_seen_at)}
+
+                    {/* Usuário */}
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8125rem' }}>
+                      {profile?.full_name ?? (
+                        <span style={{ color: 'var(--color-text-muted)' }}>—</span>
+                      )}
                     </td>
-                    <td style={tdStyle}>
-                      <DeviceActionsClient deviceId={d.id} currentStatus={d.status} />
+
+                    {/* Plano */}
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      {dev.licenses?.plan
+                        ? <span className={`badge badge-${dev.licenses.plan === 'PRO' ? 'pro' : 'basic'}`}>{dev.licenses.plan}</span>
+                        : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>—</span>}
+                    </td>
+
+                    {/* Sub-licença */}
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      <code style={{
+                        background: 'var(--color-surface-offset)',
+                        padding: '0.1rem 0.4rem',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.7rem',
+                      }}>
+                        {dev.license_key ? dev.license_key.slice(0, 14) + '…' : '—'}
+                      </code>
+                    </td>
+
+                    {/* Status */}
+                    <td style={{ padding: '0.75rem 1rem' }}>
+                      <span style={{ fontWeight: 600, fontSize: '0.8rem', color: statusColor }}>
+                        {dev.status}
+                      </span>
+                    </td>
+
+                    {/* Último acesso */}
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      {lastSeen
+                        ? isOnline
+                          ? <span style={{ color: 'var(--color-success)', fontWeight: 500 }}>Online agora</span>
+                          : lastSeen.toLocaleString('pt-BR', {
+                              day: '2-digit', month: '2-digit', year: '2-digit',
+                              hour: '2-digit', minute: '2-digit',
+                            })
+                        : '—'}
+                    </td>
+
+                    {/* Ações */}
+                    <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
+                      <DeviceActionsClient
+                        deviceId={dev.id}
+                        currentStatus={dev.status}
+                        deviceName={dev.device_name ?? 'Dispositivo'}
+                      />
                     </td>
                   </tr>
                 )
@@ -200,11 +231,4 @@ export default async function AdminDevicesPage() {
       </div>
     </main>
   )
-}
-
-const tdStyle: React.CSSProperties = {
-  padding: 'var(--space-3) var(--space-4)',
-  verticalAlign: 'middle',
-  color: 'var(--color-text)',
-  whiteSpace: 'nowrap',
 }

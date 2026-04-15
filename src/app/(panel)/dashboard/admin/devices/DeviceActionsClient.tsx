@@ -1,97 +1,87 @@
 'use client'
 
-import { useState, useTransition } from 'react'
+import { useTransition, useState } from 'react'
 import { suspendDevice, reactivateDevice, revokeDevice } from './actions'
-
-type Status = 'active' | 'suspended' | 'revoked'
 
 type Props = {
   deviceId: string
-  currentStatus: Status
+  currentStatus: string
+  deviceName: string
 }
 
-export default function DeviceActionsClient({ deviceId, currentStatus }: Props) {
-  const [isPending, startTransition] = useTransition()
+export default function DeviceActionsClient({ deviceId, currentStatus, deviceName }: Props) {
+  const [pending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
 
-  function handle(action: () => Promise<void>) {
+  function run(action: () => Promise<void>) {
     setError(null)
     startTransition(async () => {
-      try {
-        await action()
-      } catch (e: unknown) {
-        setError(e instanceof Error ? e.message : 'Erro desconhecido')
-      }
+      try { await action() }
+      catch (e: any) { setError(e.message) }
     })
   }
 
-  return (
-    <span style={{ display: 'inline-flex', gap: '0.375rem', alignItems: 'center', flexWrap: 'wrap' }}>
-      {error && (
-        <span style={{ fontSize: '0.7rem', color: 'var(--color-error)', marginRight: '0.25rem' }}>
-          {error}
-        </span>
-      )}
-
-      {currentStatus === 'active' && (
-        <button
-          disabled={isPending}
-          onClick={() => handle(() => suspendDevice(deviceId))}
-          style={buttonStyle('warning')}
-          title="Suspender dispositivo"
-        >
-          {isPending ? '...' : 'Suspender'}
-        </button>
-      )}
-
-      {currentStatus === 'suspended' && (
-        <button
-          disabled={isPending}
-          onClick={() => handle(() => reactivateDevice(deviceId))}
-          style={buttonStyle('success')}
-          title="Reativar dispositivo"
-        >
-          {isPending ? '...' : 'Reativar'}
-        </button>
-      )}
-
-      {currentStatus !== 'revoked' && (
-        <button
-          disabled={isPending}
-          onClick={() => handle(() => revokeDevice(deviceId))}
-          style={buttonStyle('danger')}
-          title="Revogar dispositivo permanentemente"
-        >
-          {isPending ? '...' : 'Revogar'}
-        </button>
-      )}
-
-      {currentStatus === 'revoked' && (
-        <button
-          disabled={isPending}
-          onClick={() => handle(() => reactivateDevice(deviceId))}
-          style={buttonStyle('success')}
-          title="Restaurar dispositivo revogado"
-        >
-          {isPending ? '...' : 'Restaurar'}
-        </button>
-      )}
-    </span>
-  )
-}
-
-function buttonStyle(variant: 'warning' | 'success' | 'danger') {
   const base: React.CSSProperties = {
-    fontSize: '0.7rem',
-    fontWeight: 600,
-    padding: '0.2rem 0.55rem',
-    borderRadius: '0.375rem',
-    border: 'none',
+    fontSize: '0.75rem', fontWeight: 600,
+    padding: '0.3rem 0.65rem',
+    borderRadius: 'var(--radius-sm)',
+    border: '1px solid',
     cursor: 'pointer',
-    letterSpacing: '0.02em',
-    transition: 'opacity 0.15s',
+    opacity: pending ? 0.55 : 1,
+    transition: '180ms',
+    background: 'transparent',
   }
-  if (variant === 'warning')  return { ...base, background: 'rgba(218,113,1,0.12)', color: 'var(--color-warning)' }
-  if (variant === 'success')  return { ...base, background: 'rgba(67,122,34,0.12)',  color: 'var(--color-success)' }
-  return { ...base, background: 'rgba(161,44,123,0.12)', color: 'var(--color-error)' }
+
+  return (
+    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center' }}>
+
+      {currentStatus === 'ACTIVE' && (
+        <button
+          disabled={pending}
+          onClick={() => run(() => suspendDevice(deviceId))}
+          style={{ ...base, color: 'var(--color-warning)', borderColor: 'var(--color-warning)', background: 'var(--color-warning-highlight)' }}
+        >
+          {pending ? '…' : '⏸ Suspender'}
+        </button>
+      )}
+
+      {currentStatus === 'SUSPENDED' && (
+        <button
+          disabled={pending}
+          onClick={() => run(() => reactivateDevice(deviceId))}
+          style={{ ...base, color: 'var(--color-success)', borderColor: 'var(--color-success)', background: 'var(--color-success-highlight)' }}
+        >
+          {pending ? '…' : '▶ Reativar'}
+        </button>
+      )}
+
+      {currentStatus === 'REVOKED' && (
+        <button
+          disabled={pending}
+          onClick={() => run(() => reactivateDevice(deviceId))}
+          style={{ ...base, color: 'var(--color-primary)', borderColor: 'var(--color-primary)', background: 'var(--color-primary-highlight)' }}
+        >
+          {pending ? '…' : '↩ Restaurar'}
+        </button>
+      )}
+
+      {currentStatus !== 'REVOKED' && (
+        <button
+          disabled={pending}
+          onClick={() => {
+            if (confirm(`Revogar "${deviceName}"?\nO acesso será bloqueado permanentemente.`)) {
+              run(() => revokeDevice(deviceId))
+            }
+          }}
+          style={{ ...base, color: 'var(--color-error)', borderColor: 'var(--color-error)', background: 'var(--color-error-highlight)' }}
+        >
+          {pending ? '…' : '✕ Revogar'}
+        </button>
+      )}
+
+      {error && (
+        <span style={{ fontSize: '0.7rem', color: 'var(--color-error)' }}>{error}</span>
+      )}
+    </div>
+  )
 }

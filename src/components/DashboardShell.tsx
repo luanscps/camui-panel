@@ -23,30 +23,30 @@ const navItems = [
   {
     section: 'Minha Conta',
     links: [
-      { href: '/dashboard/profile',  label: 'Perfil',        icon: UserIcon },
-      { href: '/dashboard/license',  label: 'Licença',       icon: KeyIcon },
-      { href: '/dashboard/devices',  label: 'Dispositivos',  icon: DeviceIcon },
+      { href: '/dashboard/profile',  label: 'Perfil',       icon: UserIcon   },
+      { href: '/dashboard/license',  label: 'Licença',      icon: KeyIcon    },
+      { href: '/dashboard/devices',  label: 'Dispositivos', icon: DeviceIcon },
     ],
   },
 ]
 
 const adminItems = [
-  { href: '/dashboard/admin',                 label: 'Painel Admin',  icon: ShieldIcon },
-  { href: '/dashboard/admin/users',           label: 'Usuários',      icon: UsersIcon },
-  { href: '/dashboard/admin/licenses',        label: 'Licenças',      icon: KeyIcon },
-  { href: '/dashboard/admin/devices',         label: 'Dispositivos',  icon: DeviceIcon },
+  { href: '/dashboard/admin',          label: 'Painel Admin',  icon: ShieldIcon },
+  { href: '/dashboard/admin/users',    label: 'Usuários',      icon: UsersIcon  },
+  { href: '/dashboard/admin/licenses', label: 'Licenças',      icon: KeyIcon    },
+  { href: '/dashboard/admin/devices',  label: 'Dispositivos',  icon: DeviceIcon },
 ]
 
 export default function DashboardShell({ user, profile, license, children }: Props) {
   const pathname = usePathname()
-  const router = useRouter()
+  const router   = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   useEffect(() => { setSidebarOpen(false) }, [pathname])
 
   useEffect(() => {
     if (sidebarOpen) document.body.style.overflow = 'hidden'
-    else document.body.style.overflow = ''
+    else             document.body.style.overflow = ''
     return () => { document.body.style.overflow = '' }
   }, [sidebarOpen])
 
@@ -54,11 +54,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   const isPro   = license?.plan === 'PRO'
 
   const initials = (profile.full_name ?? user.email)
-    .split(' ')
-    .map((n: string) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+    .split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2)
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -67,24 +63,24 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   }
 
   function isActive(href: string) {
-    if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/dashboard')       return pathname === '/dashboard'
     if (href === '/dashboard/admin') return pathname === '/dashboard/admin'
     return pathname.startsWith(href)
   }
 
   const pageTitle = (() => {
-    if (pathname === '/dashboard')                              return 'Visão Geral'
-    if (pathname.startsWith('/dashboard/profile'))              return 'Perfil'
-    if (pathname.startsWith('/dashboard/license'))              return 'Licença'
-    if (pathname.startsWith('/dashboard/devices'))              return 'Dispositivos'
-    if (pathname === '/dashboard/admin')                        return 'Painel Admin'
-    if (pathname.startsWith('/dashboard/admin/users'))          return 'Usuários'
-    if (pathname.startsWith('/dashboard/admin/licenses'))       return 'Licenças'
-    if (pathname.startsWith('/dashboard/admin/devices'))        return 'Dispositivos'
+    if (pathname === '/dashboard')                                return 'Visão Geral'
+    if (pathname.startsWith('/dashboard/profile'))                return 'Perfil'
+    if (pathname.startsWith('/dashboard/license'))                return 'Licença'
+    if (pathname.startsWith('/dashboard/devices'))                return 'Dispositivos'
+    if (pathname === '/dashboard/admin')                          return 'Painel Admin'
+    if (pathname.startsWith('/dashboard/admin/users'))            return 'Usuários'
+    if (pathname.startsWith('/dashboard/admin/licenses'))         return 'Licenças'
+    if (pathname.startsWith('/dashboard/admin/devices'))          return 'Dispositivos'
     return 'Dashboard'
   })()
 
-  const isAdminArea = pathname.startsWith('/dashboard/admin')
+  const isAdminArea    = pathname.startsWith('/dashboard/admin')
   const breadcrumbBase = { href: '/dashboard', label: 'Dashboard' }
 
   return (
@@ -95,8 +91,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           style={{
             position: 'fixed', inset: 0,
             background: 'rgba(0,0,0,0.55)',
-            zIndex: 49,
-            backdropFilter: 'blur(2px)',
+            zIndex: 49, backdropFilter: 'blur(2px)',
           }}
         />
       )}
@@ -193,13 +188,9 @@ export default function DashboardShell({ user, profile, license, children }: Pro
             aria-expanded={sidebarOpen}
             className="hamburger-btn"
             style={{
-              padding: '0.4rem',
-              borderRadius: 'var(--radius-sm)',
-              color: 'var(--color-text-muted)',
-              background: 'transparent',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'none',
+              padding: '0.4rem', borderRadius: 'var(--radius-sm)',
+              color: 'var(--color-text-muted)', background: 'transparent',
+              border: 'none', cursor: 'pointer', display: 'none',
             }}
           >
             {sidebarOpen ? (
@@ -233,11 +224,10 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           </nav>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            <span style={{
-              fontSize: '0.8125rem',
-              color: 'var(--color-text-muted)',
-              fontWeight: 500,
-            }} className="topbar-username">
+            <span
+              style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500 }}
+              className="topbar-username"
+            >
               {profile.full_name ?? user.email.split('@')[0]}
             </span>
 
@@ -270,22 +260,15 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           .camui-sidebar { transform: translateX(0) !important; }
         }
         .camui-sidebar-user-name {
-          font-size: 0.8125rem;
-          font-weight: 500;
-          color: var(--sidebar-text);
-          line-height: 1.2;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: block;
+          font-size: 0.8125rem; font-weight: 500;
+          color: var(--sidebar-text); line-height: 1.2;
+          white-space: nowrap; overflow: hidden;
+          text-overflow: ellipsis; display: block;
         }
         .camui-sidebar-user-email {
-          font-size: 0.6875rem;
-          color: var(--sidebar-text-muted);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          display: block;
+          font-size: 0.6875rem; color: var(--sidebar-text-muted);
+          white-space: nowrap; overflow: hidden;
+          text-overflow: ellipsis; display: block;
         }
       `}</style>
     </div>
