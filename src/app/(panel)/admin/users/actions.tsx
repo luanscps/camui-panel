@@ -19,6 +19,7 @@ export async function updateLicenseAction(
     update = { status: 'ACTIVE' }
   }
 
-  await supabase.from('licenses').update(update).eq('id', licenseId)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await supabase.from('licenses').update(update as any).eq('id', licenseId)
   revalidatePath('/admin/users')
 }
