@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
 export const metadata = { title: 'Admin — CAMUI Panel' }
@@ -36,9 +37,25 @@ function StatCard({ label, value, iconPath, accentColor, accentBg }: StatCardPro
 }
 
 export default async function AdminPage() {
-  const supabase = await createClient()
-  const { data } = await supabase.from('admin_license_stats').select('*').single()
-  const s = (data ?? {}) as Partial<LicenseStats>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single() as { data: { role: string | null } | null }
+
+  if (profile?.role !== 'admin') redirect('/dashboard')
+
+  const { data } = await supabase
+    .from('admin_license_stats')
+    .select('*')
+    .single() as { data: Partial<LicenseStats> | null }
+
+  const s = data ?? {}
 
   return (
     <main className="camui-content">
