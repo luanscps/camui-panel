@@ -1,38 +1,42 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import RevokeButton from './RevokeButton'
 
-type LicenseRow = { plan: string }
-type DeviceRow = {
+export const metadata = { title: 'Dispositivos — CAMUI Panel' }
+
+type LicenseRow = { id: string; plan: string; max_devices: number | null }
+type ActivationRow = {
   id: string
-  device_name?: string | null
-  device_model?: string | null
-  android_version?: string | null
-  last_seen?: string | null
-  status: string
+  device_name: string | null
+  device_model: string | null
+  android_version: string | null
+  activated_at: string | null
+  last_seen: string | null
 }
 
 export default async function DevicesPage() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = (await createClient()) as any
+  const supabase = (await createClient()) as any // eslint-disable-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: licenseData } = await supabase
+  const { data: license } = await supabase
     .from('licenses')
-    .select('plan')
+    .select('id, plan, max_devices')
     .eq('user_id', user.id)
     .single() as { data: LicenseRow | null }
 
-  const { data: devices } = await supabase
-    .from('devices')
-    .select('*')
-    .eq('user_id', user.id)
-    .order('last_seen', { ascending: false }) as { data: DeviceRow[] | null }
+  const { data: activations } = license
+    ? await supabase
+        .from('device_activations')
+        .select('id, device_name, device_model, android_version, activated_at, last_seen')
+        .eq('license_id', license.id)
+        .order('last_seen', { ascending: false })
+    : { data: null }
 
-  const license: LicenseRow | null = licenseData ?? null
-  const isPro = license?.plan === 'pro'
-  const maxDevices = isPro ? 5 : 1
-  const activeCount = (devices ?? []).filter((d: DeviceRow) => d.status === 'active').length
+  const devices: ActivationRow[] = activations ?? []
+  const isPro = license?.plan === 'PRO'
+  const maxDevices = license?.max_devices ?? (isPro ? 5 : 1)
+  const activeCount = devices.length
 
   return (
     <div className="camui-content">
@@ -51,6 +55,7 @@ export default async function DevicesPage() {
         </div>
       </div>
 
+      {/* Barra de progresso */}
       <div style={{ marginBottom: '2rem', maxWidth: '720px' }}>
         <div style={{ height: 6, borderRadius: 999, background: 'var(--color-divider)', overflow: 'hidden' }}>
           <div style={{
@@ -68,37 +73,50 @@ export default async function DevicesPage() {
         </div>
       </div>
 
-      {!devices || devices.length === 0 ? (
+      {!license && (
+        <div className="card" style={{ maxWidth: '720px' }}>
+          <div className="empty-state">
+            <div className="empty-state-icon">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5l3 3"/></svg>
+            </div>
+            <h3>Nenhuma licença encontrada</h3>
+            <p>Você precisa de uma licença ativa para gerenciar dispositivos.</p>
+          </div>
+        </div>
+      )}
+
+      {license && devices.length === 0 && (
         <div className="card" style={{ maxWidth: '720px' }}>
           <div className="empty-state">
             <div className="empty-state-icon">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="5" y="2" width="14" height="20" rx="2" />
-                <line x1="12" y1="18" x2="12" y2="18.01" />
+                <rect x="5" y="2" width="14" height="20" rx="2"/>
+                <line x1="12" y1="18" x2="12" y2="18.01"/>
               </svg>
             </div>
             <h3>Nenhum dispositivo registrado</h3>
             <p>Faça login no app CAMSTREAMER-BR para registrar seu dispositivo automaticamente.</p>
           </div>
         </div>
-      ) : (
+      )}
+
+      {license && devices.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '720px' }}>
-          {devices.map((device: DeviceRow) => {
+          {devices.map((device) => {
             const lastSeen = device.last_seen
               ? new Date(device.last_seen).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
               : '—'
-            const isActive = device.status === 'active'
             return (
               <div key={device.id} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem 1.25rem' }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 'var(--radius-md)',
-                  background: isActive ? 'rgba(1,105,111,0.08)' : 'var(--color-surface-offset)',
+                  background: 'rgba(1,105,111,0.08)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  flexShrink: 0, color: isActive ? 'var(--color-primary)' : 'var(--color-text-faint)',
+                  flexShrink: 0, color: 'var(--color-primary)',
                 }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="5" y="2" width="14" height="20" rx="2" />
-                    <line x1="12" y1="18" x2="12" y2="18.01" />
+                    <rect x="5" y="2" width="14" height="20" rx="2"/>
+                    <line x1="12" y1="18" x2="12" y2="18.01"/>
                   </svg>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -108,15 +126,12 @@ export default async function DevicesPage() {
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                     {device.device_model ?? ''}{device.device_model && device.android_version ? ' · ' : ''}Android {device.android_version ?? '—'}
                   </div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-faint)', marginTop: '0.125rem' }}>ltimo acesso: {lastSeen}</div>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-faint)', marginTop: '0.125rem' }}>
+                    Último acesso: {lastSeen}
+                  </div>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
-                  <span className={`badge ${isActive ? 'badge-success' : 'badge-neutral'}`}>
-                    {isActive ? 'Ativo' : 'Inativo'}
-                  </span>
-                  <form action={`/api/devices/${device.id}/revoke`} method="POST">
-                    <button type="submit" className="btn btn-danger btn-xs" title="Revogar acesso">Revogar</button>
-                  </form>
+                <div style={{ flexShrink: 0 }}>
+                  <RevokeButton activationId={device.id} />
                 </div>
               </div>
             )
@@ -124,7 +139,7 @@ export default async function DevicesPage() {
         </div>
       )}
 
-      {!isPro && (
+      {!isPro && license && (
         <div className="upgrade-banner" style={{ maxWidth: '720px', marginTop: '1.5rem' }}>
           <div>
             <div style={{ fontWeight: 600, fontSize: '0.9375rem', color: 'var(--color-primary)', marginBottom: '0.25rem' }}>Precisa de mais dispositivos?</div>

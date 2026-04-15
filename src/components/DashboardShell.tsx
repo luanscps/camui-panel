@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
@@ -41,8 +41,18 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // Fecha sidebar ao navegar
+  useEffect(() => { setSidebarOpen(false) }, [pathname])
+
+  // Bloqueia scroll do body quando sidebar aberta no mobile
+  useEffect(() => {
+    if (sidebarOpen) document.body.style.overflow = 'hidden'
+    else document.body.style.overflow = ''
+    return () => { document.body.style.overflow = '' }
+  }, [sidebarOpen])
+
   const isAdmin = profile.is_admin === true
-  const isPro   = license?.plan === 'pro'
+  const isPro   = license?.plan === 'PRO'
 
   const initials = (profile.full_name ?? user.email)
     .split(' ')
@@ -64,13 +74,13 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   }
 
   const pageTitle = (() => {
-    if (pathname === '/dashboard')                              return 'Visão Geral'
-    if (pathname.startsWith('/dashboard/profile'))             return 'Perfil'
-    if (pathname.startsWith('/dashboard/license'))             return 'Licença'
-    if (pathname.startsWith('/dashboard/devices'))             return 'Dispositivos'
-    if (pathname === '/dashboard/admin')                       return 'Painel Admin'
-    if (pathname.startsWith('/dashboard/admin/users'))         return 'Usuários'
-    if (pathname.startsWith('/dashboard/admin/licenses'))      return 'Licenças'
+    if (pathname === '/dashboard')                         return 'Visão Geral'
+    if (pathname.startsWith('/dashboard/profile'))         return 'Perfil'
+    if (pathname.startsWith('/dashboard/license'))         return 'Licença'
+    if (pathname.startsWith('/dashboard/devices'))         return 'Dispositivos'
+    if (pathname === '/dashboard/admin')                   return 'Painel Admin'
+    if (pathname.startsWith('/dashboard/admin/users'))     return 'Usuários'
+    if (pathname.startsWith('/dashboard/admin/licenses'))  return 'Licenças'
     return 'Dashboard'
   })()
 
@@ -79,14 +89,16 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
   return (
     <div className="camui-layout">
+      {/* Overlay mobile */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-            zIndex: 49, display: 'none',
+            position: 'fixed', inset: 0,
+            background: 'rgba(0,0,0,0.55)',
+            zIndex: 49,
+            backdropFilter: 'blur(2px)',
           }}
-          className="sidebar-overlay"
         />
       )}
 
@@ -113,6 +125,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
                   key={href}
                   href={href}
                   className={`camui-nav-link${isActive(href) ? ' active' : ''}`}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <Icon />
                   {label}
@@ -135,6 +148,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
                   key={href}
                   href={href}
                   className={`camui-nav-link${isActive(href) ? ' active' : ''}`}
+                  onClick={() => setSidebarOpen(false)}
                 >
                   <Icon />
                   {label}
@@ -154,17 +168,11 @@ export default function DashboardShell({ user, profile, license, children }: Pro
               <span className="camui-sidebar-user-email">{user.email}</span>
               {isAdmin && (
                 <span style={{
-                  fontSize: '0.65rem',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  color: 'var(--color-primary)',
-                  lineHeight: 1,
-                  marginTop: '0.125rem',
-                  display: 'block',
-                }}>
-                  Admin
-                </span>
+                  fontSize: '0.65rem', fontWeight: 600,
+                  textTransform: 'uppercase', letterSpacing: '0.05em',
+                  color: 'var(--sidebar-accent)', lineHeight: 1,
+                  marginTop: '0.125rem', display: 'block',
+                }}>Admin</span>
               )}
             </div>
           </div>
@@ -180,20 +188,34 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
       <div className="camui-main">
         <header className="camui-topbar">
+          {/* Botão hamburguer — visível apenas no mobile via CSS */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
-            aria-label="Abrir menu"
-            style={{
-              display: 'none', padding: '0.375rem',
-              borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)',
-            }}
+            aria-label={sidebarOpen ? 'Fechar menu' : 'Abrir menu'}
+            aria-expanded={sidebarOpen}
             className="hamburger-btn"
+            style={{
+              padding: '0.4rem',
+              borderRadius: 'var(--radius-sm)',
+              color: 'var(--color-text-muted)',
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'none', // sobrescrito pelo CSS media query
+            }}
           >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6"/>
-              <line x1="3" y1="12" x2="21" y2="12"/>
-              <line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
+            {sidebarOpen ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            ) : (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <line x1="3" y1="12" x2="21" y2="12"/>
+                <line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            )}
           </button>
 
           <nav className="camui-topbar-breadcrumb" aria-label="Breadcrumb">
@@ -213,19 +235,24 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           </nav>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {/* Nome do usuário na topbar */}
+            <span style={{
+              fontSize: '0.8125rem',
+              color: 'var(--color-text-muted)',
+              fontWeight: 500,
+            }} className="topbar-username">
+              {profile.full_name ?? user.email.split('@')[0]}
+            </span>
+
             {isAdminArea ? (
               <span style={{
-                fontSize: 'var(--text-xs)',
-                fontWeight: 600,
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                color: 'var(--color-primary)',
-                background: 'var(--color-primary-highlight)',
+                fontSize: '0.6875rem', fontWeight: 600,
+                textTransform: 'uppercase', letterSpacing: '0.06em',
+                color: 'var(--color-brand)',
+                background: 'rgba(1,105,111,0.1)',
                 padding: '0.2rem 0.6rem',
                 borderRadius: 'var(--radius-full)',
-              }}>
-                Admin
-              </span>
+              }}>Admin</span>
             ) : isPro ? (
               <span className="badge badge-pro">PRO</span>
             ) : (
@@ -239,24 +266,29 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
       <style>{`
         @media (max-width: 768px) {
-          .hamburger-btn { display: flex !important; }
-          .sidebar-overlay { display: block !important; }
+          .hamburger-btn { display: flex !important; align-items: center; justify-content: center; }
+          .topbar-username { display: none !important; }
+        }
+        @media (min-width: 769px) {
+          .camui-sidebar { transform: translateX(0) !important; }
         }
         .camui-sidebar-user-name {
-          font-size: var(--text-sm);
+          font-size: 0.8125rem;
           font-weight: 500;
-          color: var(--color-text);
+          color: var(--sidebar-text);
           line-height: 1.2;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          display: block;
         }
         .camui-sidebar-user-email {
-          font-size: var(--text-xs);
-          color: var(--color-text-muted);
+          font-size: 0.6875rem;
+          color: var(--sidebar-text-muted);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          display: block;
         }
       `}</style>
     </div>
