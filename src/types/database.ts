@@ -31,6 +31,8 @@ export type Database = {
           last_seen_at: string | null
           license_id: string
           sdk_int: number | null
+          status: string
+          sub_license_key: string | null
         }
         Insert: {
           activated_at?: string | null
@@ -48,6 +50,8 @@ export type Database = {
           last_seen_at?: string | null
           license_id: string
           sdk_int?: number | null
+          status?: string
+          sub_license_key?: string | null
         }
         Update: {
           activated_at?: string | null
@@ -65,6 +69,8 @@ export type Database = {
           last_seen_at?: string | null
           license_id?: string
           sdk_int?: number | null
+          status?: string
+          sub_license_key?: string | null
         }
         Relationships: [
           {
