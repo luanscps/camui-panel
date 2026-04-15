@@ -28,10 +28,12 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  // ✅ Fix: filtrar pela licença do usuário logado
   const { data: license } = await supabase
     .from('licenses')
     .select('*')
-    .single() as { data: License | null }
+    .eq('user_id', user.id)
+    .maybeSingle() as { data: License | null }
 
   const { data: devices } = license
     ? await supabase
@@ -44,7 +46,6 @@ export default async function DashboardPage() {
   const statusBadge: Record<string, string> = {
     ACTIVE: 'badge-success', SUSPENDED: 'badge-warning', EXPIRED: 'badge-error'
   }
-
   const planBadge = license?.plan === 'PRO' ? 'badge-pro' : 'badge-basic'
 
   return (
@@ -56,65 +57,89 @@ export default async function DashboardPage() {
         </nav>
       </header>
 
-      {/* Content */}
       <main className="camui-content">
         <div style={{ marginBottom: '1.75rem' }}>
           <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
             Meu Painel
           </h1>
-          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Bem-vindo de volta, {user.email}</p>
+          <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+            Bem-vindo de volta, {user.email}
+          </p>
         </div>
+
+        {/* Sem licença */}
+        {!license && (
+          <div className="card" style={{ marginBottom: '1.5rem', textAlign: 'center', padding: '2.5rem 1.5rem' }}>
+            <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🔑</div>
+            <h3 style={{ fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.5rem' }}>Nenhuma licença encontrada</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.25rem' }}>
+              Sua conta ainda não possui uma licença ativa. Entre em contato com o suporte.
+            </p>
+            <Link href="/upgrade" className="btn btn-primary">Ver planos</Link>
+          </div>
+        )}
 
         {/* Licença */}
-        <div className="card" style={{ marginBottom: '1.5rem' }}>
-          <div className="card-header">
-            <div>
-              <div className="card-title">Minha Licença</div>
-              <div className="card-subtitle">Status e plano atual</div>
+        {license && (
+          <div className="card" style={{ marginBottom: '1.5rem' }}>
+            <div className="card-header">
+              <div>
+                <div className="card-title">Minha Licença</div>
+                <div className="card-subtitle">Status e plano atual</div>
+              </div>
+              <span className={`badge ${planBadge}`}>{license.plan}</span>
             </div>
-            <span className={`badge ${planBadge}`}>{license?.plan ?? 'SEM LICENÇA'}</span>
-          </div>
 
-          <div className="info-row">
-            <div className="info-cell">
-              <div className="info-cell-label">Status</div>
-              <div className="info-cell-value">
-                <span className={`badge ${statusBadge[license?.status ?? ''] ?? 'badge-neutral'}`}>
-                  {license?.status ?? '—'}
-                </span>
+            <div className="info-row">
+              <div className="info-cell">
+                <div className="info-cell-label">Status</div>
+                <div className="info-cell-value">
+                  <span className={`badge ${statusBadge[license.status] ?? 'badge-neutral'}`}>
+                    {license.status}
+                  </span>
+                </div>
+              </div>
+              <div className="info-cell">
+                <div className="info-cell-label">Dispositivos</div>
+                <div className="info-cell-value">
+                  {devices?.length ?? 0}
+                  <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>
+                    {' '}/ {license.max_devices}
+                  </span>
+                </div>
+              </div>
+              <div className="info-cell">
+                <div className="info-cell-label">Expiração</div>
+                <div className="info-cell-value" style={{ fontSize: '0.875rem' }}>
+                  {license.expires_at
+                    ? new Date(license.expires_at).toLocaleDateString('pt-BR')
+                    : 'Vitalício'}
+                </div>
+              </div>
+              <div className="info-cell">
+                <div className="info-cell-label">RTMP Avançado</div>
+                <div className="info-cell-value">
+                  <span className={`badge ${license.plan === 'PRO' ? 'badge-success' : 'badge-neutral'}`}>
+                    {license.plan === 'PRO' ? 'Habilitado' : 'Básico'}
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="info-cell">
-              <div className="info-cell-label">Dispositivos</div>
-              <div className="info-cell-value">
-                {devices?.length ?? 0} <span style={{ fontWeight: 400, color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>/ {license?.max_devices ?? 1}</span>
-              </div>
-            </div>
-            <div className="info-cell">
-              <div className="info-cell-label">Expiração</div>
-              <div className="info-cell-value" style={{ fontSize: '0.875rem' }}>
-                {license?.expires_at
-                  ? new Date(license.expires_at).toLocaleDateString('pt-BR')
-                  : 'Vitalício'}
-              </div>
-            </div>
-            <div className="info-cell">
-              <div className="info-cell-label">RTMP Avançado</div>
-              <div className="info-cell-value">
-                <span className={`badge ${license?.plan === 'PRO' ? 'badge-success' : 'badge-neutral'}`}>
-                  {license?.plan === 'PRO' ? 'Habilitado' : 'Básico'}
-                </span>
-              </div>
-            </div>
-          </div>
 
-          {license?.plan === 'BASIC' && (
-            <div className="upgrade-banner">
-              <p>🚀 Faça upgrade para <strong>PRO</strong> e desbloqueie RTMP avançado, overlay personalizado e mais dispositivos.</p>
-              <Link href="/upgrade" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>Upgrade PRO</Link>
-            </div>
-          )}
-        </div>
+            {license.status === 'SUSPENDED' && (
+              <div className="upgrade-banner" style={{ borderColor: 'var(--color-warning)', background: 'var(--color-warning-bg)' }}>
+                <p>⚠️ Sua licença está <strong>suspensa</strong>. Entre em contato com o suporte para reativar.</p>
+              </div>
+            )}
+
+            {license.plan === 'BASIC' && license.status === 'ACTIVE' && (
+              <div className="upgrade-banner">
+                <p>🚀 Faça upgrade para <strong>PRO</strong> e desbloqueie RTMP avançado, overlay personalizado e mais dispositivos.</p>
+                <Link href="/upgrade" className="btn btn-primary btn-sm" style={{ flexShrink: 0 }}>Upgrade PRO</Link>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Devices */}
         <div className="card">
@@ -166,12 +191,15 @@ export default async function DashboardPage() {
                     <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>
                       {device.device_name || 'Dispositivo Android'}
                     </div>
-                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: 2 }}>
-                      ID: {device.device_id.substring(0, 20)}…
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: 2, fontFamily: 'var(--font-mono)' }}>
+                      {device.device_id.substring(0, 24)}…
                     </div>
                   </div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>
-                    Último acesso: {new Date(device.last_seen_at).toLocaleDateString('pt-BR')}
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', flexShrink: 0, textAlign: 'right' }}>
+                    <div>Último acesso</div>
+                    <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>
+                      {new Date(device.last_seen_at).toLocaleDateString('pt-BR')}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -18,40 +18,68 @@ export default function AdminUserActions({ licenseId, currentPlan, currentStatus
   }
 
   return (
-    <div className="flex gap-1 flex-wrap">
-      {currentPlan !== 'PRO' && (
+    <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center' }}>
+      {currentPlan !== 'PRO' ? (
         <button
           disabled={pending}
           onClick={() => handle({ plan: 'PRO', max_devices: 3 })}
-          className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn btn-sm"
+          style={{
+            background: 'var(--color-success-bg)',
+            color: 'var(--color-success)',
+            border: '1px solid var(--color-success)',
+            opacity: pending ? 0.5 : 1,
+            cursor: pending ? 'not-allowed' : 'pointer',
+          }}
         >
-          {pending ? '...' : 'UP PRO'}
+          {pending ? '…' : '↑ PRO'}
         </button>
-      )}
-      {currentPlan === 'PRO' && (
+      ) : (
         <button
           disabled={pending}
           onClick={() => handle({ plan: 'BASIC', max_devices: 1 })}
-          className="text-xs px-2 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn btn-sm"
+          style={{
+            background: 'rgba(1,105,111,0.08)',
+            color: 'var(--color-brand)',
+            border: '1px solid var(--color-brand)',
+            opacity: pending ? 0.5 : 1,
+            cursor: pending ? 'not-allowed' : 'pointer',
+          }}
         >
-          {pending ? '...' : 'DOWN BASIC'}
+          {pending ? '…' : '↓ BASIC'}
         </button>
       )}
+
       {currentStatus === 'ACTIVE' ? (
         <button
           disabled={pending}
           onClick={() => handle({ status: 'SUSPENDED' })}
-          className="text-xs px-2 py-1 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn btn-sm"
+          style={{
+            background: 'var(--color-warning-bg)',
+            color: 'var(--color-warning)',
+            border: '1px solid var(--color-warning)',
+            opacity: pending ? 0.5 : 1,
+            cursor: pending ? 'not-allowed' : 'pointer',
+          }}
         >
-          {pending ? '...' : 'Suspender'}
+          {pending ? '…' : 'Suspender'}
         </button>
       ) : (
         <button
           disabled={pending}
           onClick={() => handle({ status: 'ACTIVE' })}
-          className="text-xs px-2 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="btn btn-sm"
+          style={{
+            background: 'var(--color-surface-offset)',
+            color: 'var(--color-text-muted)',
+            border: '1px solid var(--color-border)',
+            opacity: pending ? 0.5 : 1,
+            cursor: pending ? 'not-allowed' : 'pointer',
+          }}
         >
-          {pending ? '...' : 'Reativar'}
+          {pending ? '…' : 'Reativar'}
         </button>
       )}
     </div>
