@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import UpdateNameForm from './UpdateNameForm'
 
 export const metadata = { title: 'Perfil — CAMUI Panel' }
 
@@ -31,15 +32,21 @@ export default async function ProfilePage() {
         <div className="card-header">
           <div className="card-title">Dados pessoais</div>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+          {/* Nome editável */}
           <div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>Nome completo</div>
-            <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>{profile?.full_name ?? '—'}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.5rem' }}>Nome completo</div>
+            <UpdateNameForm currentName={profile?.full_name ?? null} />
           </div>
+
+          {/* Email somente leitura */}
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>E-mail</div>
             <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>{user.email}</div>
           </div>
+
+          {/* Função */}
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>Função</div>
             {profile?.is_admin ? (
@@ -56,6 +63,8 @@ export default async function ProfilePage() {
               <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>Usuário</div>
             )}
           </div>
+
+          {/* Membro desde */}
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>Membro desde</div>
             <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>
@@ -64,6 +73,7 @@ export default async function ProfilePage() {
                 : '—'}
             </div>
           </div>
+
         </div>
       </div>
     </main>
