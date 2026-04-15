@@ -1,8 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
+type LicenseRow = { plan: string }
+type DeviceRow = {
+  id: string
+  device_name?: string | null
+  device_model?: string | null
+  android_version?: string | null
+  last_seen?: string | null
+  status: string
+}
+
 export default async function DevicesPage() {
-  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -10,18 +21,18 @@ export default async function DevicesPage() {
     .from('licenses')
     .select('plan')
     .eq('user_id', user.id)
-    .single()
+    .single() as { data: LicenseRow | null }
 
   const { data: devices } = await supabase
     .from('devices')
     .select('*')
     .eq('user_id', user.id)
-    .order('last_seen', { ascending: false })
+    .order('last_seen', { ascending: false }) as { data: DeviceRow[] | null }
 
-  const license: { plan: string } | null = licenseData ?? null
+  const license: LicenseRow | null = licenseData ?? null
   const isPro = license?.plan === 'pro'
   const maxDevices = isPro ? 5 : 1
-  const activeCount = (devices ?? []).filter((d: { status: string }) => d.status === 'active').length
+  const activeCount = (devices ?? []).filter((d: DeviceRow) => d.status === 'active').length
 
   return (
     <div className="camui-content">
@@ -72,14 +83,7 @@ export default async function DevicesPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '720px' }}>
-          {devices.map((device: {
-            id: string
-            device_name?: string | null
-            device_model?: string | null
-            android_version?: string | null
-            last_seen?: string | null
-            status: string
-          }) => {
+          {devices.map((device: DeviceRow) => {
             const lastSeen = device.last_seen
               ? new Date(device.last_seen).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
               : '—'
@@ -104,7 +108,7 @@ export default async function DevicesPage() {
                   <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                     {device.device_model ?? ''}{device.device_model && device.android_version ? ' · ' : ''}Android {device.android_version ?? '—'}
                   </div>
-                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-faint)', marginTop: '0.125rem' }}>Último acesso: {lastSeen}</div>
+                  <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-faint)', marginTop: '0.125rem' }}>ltimo acesso: {lastSeen}</div>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexShrink: 0 }}>
                   <span className={`badge ${isActive ? 'badge-success' : 'badge-neutral'}`}>
