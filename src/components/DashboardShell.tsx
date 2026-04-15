@@ -31,9 +31,9 @@ const navItems = [
 ]
 
 const adminItems = [
-  { href: '/admin',          label: 'Painel Admin',  icon: ShieldIcon },
-  { href: '/admin/users',    label: 'Usuários',      icon: UsersIcon },
-  { href: '/admin/licenses', label: 'Licenças',      icon: KeyIcon },
+  { href: '/dashboard/admin',          label: 'Painel Admin',  icon: ShieldIcon },
+  { href: '/dashboard/admin/users',    label: 'Usuários',      icon: UsersIcon },
+  { href: '/dashboard/admin/licenses', label: 'Licenças',      icon: KeyIcon },
 ]
 
 export default function DashboardShell({ user, profile, license, children }: Props) {
@@ -59,29 +59,26 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard'
-    if (href === '/admin')     return pathname === '/admin'
+    if (href === '/dashboard/admin') return pathname === '/dashboard/admin'
     return pathname.startsWith(href)
   }
 
   const pageTitle = (() => {
-    if (pathname === '/dashboard')                       return 'Visão Geral'
-    if (pathname.startsWith('/dashboard/profile'))       return 'Perfil'
-    if (pathname.startsWith('/dashboard/license'))       return 'Licença'
-    if (pathname.startsWith('/dashboard/devices'))       return 'Dispositivos'
-    if (pathname === '/admin')                           return 'Painel Admin'
-    if (pathname.startsWith('/admin/users'))             return 'Usuários'
-    if (pathname.startsWith('/admin/licenses'))          return 'Licenças'
+    if (pathname === '/dashboard')                              return 'Visão Geral'
+    if (pathname.startsWith('/dashboard/profile'))             return 'Perfil'
+    if (pathname.startsWith('/dashboard/license'))             return 'Licença'
+    if (pathname.startsWith('/dashboard/devices'))             return 'Dispositivos'
+    if (pathname === '/dashboard/admin')                       return 'Painel Admin'
+    if (pathname.startsWith('/dashboard/admin/users'))         return 'Usuários'
+    if (pathname.startsWith('/dashboard/admin/licenses'))      return 'Licenças'
     return 'Dashboard'
   })()
 
-  const isAdminArea = pathname.startsWith('/admin')
-  const breadcrumbBase = isAdminArea
-    ? { href: '/admin', label: 'Admin' }
-    : { href: '/dashboard', label: 'Dashboard' }
+  const isAdminArea = pathname.startsWith('/dashboard/admin')
+  const breadcrumbBase = { href: '/dashboard', label: 'Dashboard' }
 
   return (
     <div className="camui-layout">
-      {/* Overlay mobile */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -93,9 +90,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
         />
       )}
 
-      {/* Sidebar */}
       <aside className={`camui-sidebar${sidebarOpen ? ' open' : ''}`}>
-        {/* Logo */}
         <Link href="/dashboard" className="camui-sidebar-logo">
           <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-label="CAMUI">
             <rect width="28" height="28" rx="7" fill="#01696f"/>
@@ -109,7 +104,6 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           </div>
         </Link>
 
-        {/* Nav principal */}
         <nav className="camui-sidebar-nav" aria-label="Navegação principal">
           {navItems.map(({ section, links }) => (
             <div key={section}>
@@ -130,7 +124,6 @@ export default function DashboardShell({ user, profile, license, children }: Pro
             </div>
           ))}
 
-          {/* Seção admin — visível apenas para role=admin */}
           {isAdmin && (
             <div>
               <div className="camui-sidebar-section" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -151,7 +144,6 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           )}
         </nav>
 
-        {/* Footer usuário */}
         <div className="camui-sidebar-footer">
           <div className="camui-sidebar-user">
             <div className="camui-sidebar-avatar">{initials}</div>
@@ -186,11 +178,8 @@ export default function DashboardShell({ user, profile, license, children }: Pro
         </div>
       </aside>
 
-      {/* Main */}
       <div className="camui-main">
-        {/* Topbar */}
         <header className="camui-topbar">
-          {/* Hamburger mobile */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Abrir menu"
@@ -209,9 +198,15 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
           <nav className="camui-topbar-breadcrumb" aria-label="Breadcrumb">
             <Link href={breadcrumbBase.href}>{breadcrumbBase.label}</Link>
-            {pathname !== breadcrumbBase.href && (
+            {pathname !== '/dashboard' && (
               <>
                 <span aria-hidden>›</span>
+                {isAdminArea && pathname !== '/dashboard/admin' && (
+                  <>
+                    <Link href="/dashboard/admin">Admin</Link>
+                    <span aria-hidden>›</span>
+                  </>
+                )}
                 <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{pageTitle}</span>
               </>
             )}
@@ -268,7 +263,6 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   )
 }
 
-/* ─── Ícones inline SVG ─── */
 function HomeIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg> }
 function UserIcon()   { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> }
 function KeyIcon()    { return <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5l3 3"/></svg> }
