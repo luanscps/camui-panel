@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import type { TablesUpdate } from '@/types/database'
 
 export async function updateLicenseAction(
   licenseId: string,
@@ -9,10 +10,14 @@ export async function updateLicenseAction(
 ) {
   const supabase = await createClient()
 
-  const update: { plan?: string; status?: string } =
-    action === 'upgrade'  ? { plan: 'PRO' } :
-    action === 'suspend'  ? { status: 'SUSPENDED' } :
-                            { status: 'ACTIVE' }
+  let update: TablesUpdate<'licenses'>
+  if (action === 'upgrade') {
+    update = { plan: 'PRO' }
+  } else if (action === 'suspend') {
+    update = { status: 'SUSPENDED' }
+  } else {
+    update = { status: 'ACTIVE' }
+  }
 
   await supabase.from('licenses').update(update).eq('id', licenseId)
   revalidatePath('/admin/users')
