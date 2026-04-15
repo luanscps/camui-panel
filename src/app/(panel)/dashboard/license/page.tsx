@@ -3,8 +3,16 @@ import { redirect } from 'next/navigation'
 
 export const metadata = { title: 'Licença — CAMUI Panel' }
 
+type License = {
+  plan: string
+  status: string
+  expires_at: string | null
+  max_devices: number | null
+}
+
 export default async function LicensePage() {
-  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -12,7 +20,7 @@ export default async function LicensePage() {
     .from('licenses')
     .select('plan, status, expires_at, max_devices')
     .eq('user_id', user.id)
-    .single()
+    .single() as { data: License | null }
 
   const isPro = license?.plan === 'PRO'
 
