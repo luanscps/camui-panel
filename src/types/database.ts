@@ -1,6 +1,4 @@
-Need to install the following packages:
-supabase@2.91.2
-Ok to proceed? (y) export type Json =
+export type Json =
   | string
   | number
   | boolean
@@ -207,7 +205,7 @@ export type Database = {
   }
 }
 
-type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+export type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
