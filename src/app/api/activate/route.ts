@@ -1,27 +1,24 @@
 /**
  * POST /api/activate
  *
- * Chamado pelo app Android após login. Registra ou atualiza o dispositivo
- * na tabela device_activations usando android_id como chave única por licença.
+ * Registra ou atualiza o dispositivo na tabela device_activations.
+ * Cada dispositivo recebe uma sub_license_key única gerada automaticamente.
  *
- * Body JSON esperado:
+ * Body JSON:
  * {
- *   license_key:     string  — chave da licença do usuário
- *   device_name:     string  — Build.MODEL (ex: "Pixel 7")
- *   device_brand:    string  — Build.BRAND (ex: "Google")
- *   device_model:    string  — Build.DEVICE (ex: "panther")
- *   device_hardware: string  — Build.HARDWARE (ex: "qcom")
- *   android_version: string  — Build.VERSION.RELEASE (ex: "14")
- *   sdk_int:         number  — Build.VERSION.SDK_INT (ex: 34)
+ *   license_key:     string  — chave da licença mãe do usuário
+ *   device_name:     string  — Build.MODEL
+ *   device_brand:    string  — Build.BRAND
+ *   device_model:    string  — Build.DEVICE
+ *   device_hardware: string  — Build.HARDWARE
+ *   android_version: string  — Build.VERSION.RELEASE
+ *   sdk_int:         number  — Build.VERSION.SDK_INT
  *   android_id:      string  — Settings.Secure.ANDROID_ID
- *   app_version:     string  — BuildConfig.VERSION_NAME (ex: "5.0.1")
+ *   app_version:     string  — BuildConfig.VERSION_NAME
  * }
  *
  * Resposta de sucesso:
- * { ok: true, plan: "BASIC"|"PRO", max_devices: number, device_id: string }
- *
- * Resposta de erro:
- * { ok: false, error: string } — HTTP 4xx/5xx
+ * { ok: true, plan, max_devices, device_id, sub_license_key, status }
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -45,7 +42,6 @@ type ActivateBody = {
   app_version?:     string
 }
 
-/** Gera UUID v4 sem dependência externa */
 function uuidv4(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
@@ -53,8 +49,13 @@ function uuidv4(): string {
   })
 }
 
+/** Gera sub-licença no formato CAMUI-XXXX-XXXX-XXXX-XXXX */
+function generateSubLicenseKey(): string {
+  const seg = () => Math.random().toString(36).substring(2, 6).toUpperCase()
+  return `CAMUI-${seg()}-${seg()}-${seg()}-${seg()}`
+}
+
 export async function POST(req: NextRequest) {
-  // ---------- parse body ----------
   let body: ActivateBody
   try {
     body = await req.json()
@@ -64,71 +65,63 @@ export async function POST(req: NextRequest) {
 
   const { license_key, android_id } = body
 
-  if (!license_key?.trim()) {
+  if (!license_key?.trim())
     return NextResponse.json({ ok: false, error: 'license_key obrigatório' }, { status: 400 })
-  }
-  if (!android_id?.trim()) {
+  if (!android_id?.trim())
     return NextResponse.json({ ok: false, error: 'android_id obrigatório' }, { status: 400 })
-  }
 
-  // ---------- buscar licença ----------
+  // ---------- valida licença mãe ----------
   const { data: license, error: licErr } = await supabaseAdmin
     .from('licenses')
-    .select('id, user_id, plan, status, max_devices, expires_at')
+    .select('id, plan, status, max_devices, expires_at')
     .eq('license_key', license_key.trim())
     .single()
 
-  if (licErr || !license) {
+  if (licErr || !license)
     return NextResponse.json({ ok: false, error: 'Licença não encontrada' }, { status: 404 })
-  }
-
-  if (license.status !== 'ACTIVE') {
+  if (license.status !== 'ACTIVE')
     return NextResponse.json({ ok: false, error: `Licença ${license.status}` }, { status: 403 })
-  }
-
-  if (license.expires_at && new Date(license.expires_at) < new Date()) {
+  if (license.expires_at && new Date(license.expires_at) < new Date())
     return NextResponse.json({ ok: false, error: 'Licença expirada' }, { status: 403 })
-  }
 
   const maxDevices: number = license.max_devices ?? (license.plan === 'PRO' ? 5 : 1)
 
-  // ---------- verificar se este android_id já está ativo nesta licença ----------
+  // ---------- busca device existente ----------
   const { data: existingDevice } = await supabaseAdmin
     .from('device_activations')
-    .select('id')
+    .select('id, status, sub_license_key')
     .eq('license_id', license.id)
     .eq('android_id', android_id)
     .maybeSingle()
 
-  // Se não existe, verificar limite de slots
+  // Device existente suspenso — bloqueia acesso
+  if (existingDevice?.status === 'SUSPENDED') {
+    return NextResponse.json(
+      { ok: false, error: 'Dispositivo suspenso. Contate o suporte.' },
+      { status: 403 }
+    )
+  }
+
+  // Novo device — verifica limite de slots
   if (!existingDevice) {
     const { count } = await supabaseAdmin
       .from('device_activations')
       .select('id', { count: 'exact', head: true })
       .eq('license_id', license.id)
+      .neq('status', 'REVOKED')
 
-    if ((count ?? 0) >= maxDevices) {
+    if ((count ?? 0) >= maxDevices)
       return NextResponse.json(
         { ok: false, error: `Limite de ${maxDevices} dispositivo(s) atingido` },
         { status: 409 }
       )
-    }
   }
 
-  // ---------- montar fingerprint ----------
-  const fingerprint = [
-    body.device_brand    ?? '',
-    body.device_model    ?? '',
-    body.device_hardware ?? '',
-    android_id,
-  ].join('|')
-
-  // ---------- upsert do dispositivo ----------
+  // ---------- fingerprint ----------
+  const fingerprint = [body.device_brand ?? '', body.device_model ?? '', body.device_hardware ?? '', android_id].join('|')
   const now = new Date().toISOString()
 
-  const upsertData = {
-    license_id:      license.id,
-    android_id:      android_id,
+  const updateData = {
     device_name:     body.device_name     ?? null,
     device_brand:    body.device_brand    ?? null,
     device_model:    body.device_model    ?? null,
@@ -136,25 +129,30 @@ export async function POST(req: NextRequest) {
     android_version: body.android_version ?? null,
     sdk_int:         body.sdk_int         ?? null,
     app_version:     body.app_version     ?? null,
-    fingerprint:     fingerprint,
-    last_seen:       now,
+    fingerprint,
+    last_seen: now,
   }
 
+  // ---------- upsert ----------
   const { data: upserted, error: upsertErr } = existingDevice
     ? await supabaseAdmin
         .from('device_activations')
-        .update(upsertData)
+        .update(updateData)
         .eq('id', existingDevice.id)
-        .select('id')
+        .select('id, sub_license_key, status')
         .single()
     : await supabaseAdmin
         .from('device_activations')
         .insert({
-          ...upsertData,
-          device_id:    uuidv4(),  // coluna NOT NULL legada — gerada aqui
-          activated_at: now,
+          ...updateData,
+          license_id:      license.id,
+          android_id,
+          device_id:       uuidv4(),
+          activated_at:    now,
+          status:          'ACTIVE',
+          sub_license_key: generateSubLicenseKey(),
         })
-        .select('id')
+        .select('id, sub_license_key, status')
         .single()
 
   if (upsertErr || !upserted) {
@@ -163,9 +161,11 @@ export async function POST(req: NextRequest) {
   }
 
   return NextResponse.json({
-    ok:          true,
-    plan:        license.plan  as string,
-    max_devices: maxDevices    as number,
-    device_id:   upserted.id  as string,
+    ok:              true,
+    plan:            license.plan      as string,
+    max_devices:     maxDevices        as number,
+    device_id:       upserted.id       as string,
+    sub_license_key: upserted.sub_license_key as string,
+    status:          upserted.status   as string,
   })
 }
