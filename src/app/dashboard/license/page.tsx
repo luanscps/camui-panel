@@ -1,13 +1,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import type { Tables } from '@/types/database'
 
-type License = {
-  plan: string
-  status: string
-  expires_at: string | null
-  created_at: string | null
-  license_key: string | null
-}
+type License = Tables<'licenses'>
 
 export default async function LicensePage() {
   const supabase = await createClient()
@@ -22,8 +17,8 @@ export default async function LicensePage() {
 
   const license: License | null = licenseData ?? null
 
-  const isPro     = license?.plan   === 'pro'
-  const isActive  = license?.status === 'active'
+  const isPro    = license?.plan   === 'pro'
+  const isActive = license?.status === 'active'
 
   const expiresAt = license?.expires_at
     ? new Date(license.expires_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -72,7 +67,7 @@ export default async function LicensePage() {
           <div className="info-row">
             <div className="info-cell">
               <div className="info-cell-label">Dispositivos permitidos</div>
-              <div className="info-cell-value">{isPro ? '5' : '1'}</div>
+              <div className="info-cell-value">{license?.max_devices ?? (isPro ? 5 : 1)}</div>
             </div>
             <div className="info-cell">
               <div className="info-cell-label">Ativada em</div>
@@ -83,9 +78,9 @@ export default async function LicensePage() {
               <div className="info-cell-value">{expiresAt ?? 'Vitalícia'}</div>
             </div>
             <div className="info-cell">
-              <div className="info-cell-label">Chave</div>
+              <div className="info-cell-label">ID da Licença</div>
               <div className="info-cell-value" style={{ fontSize: '0.75rem', fontFamily: 'monospace' }}>
-                {license?.license_key ? `${license.license_key.slice(0, 8)}...` : '—'}
+                {license?.id ? `${license.id.slice(0, 8)}...` : '—'}
               </div>
             </div>
           </div>

@@ -1,16 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import type { Tables } from '@/types/database'
+
+type Profile = Tables<'profiles'>
 
 export default async function ProfilePage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
+
+  const profile: Profile | null = profileData ?? null
 
   const initials = (profile?.full_name ?? user.email ?? '?')
     .split(' ')
@@ -55,8 +60,8 @@ export default async function ProfilePage() {
                 {user.email}
               </div>
               <div style={{ marginTop: '0.5rem' }}>
-                <span className={`badge badge-${profile?.role === 'admin' ? 'admin' : 'neutral'}`}>
-                  {profile?.role ?? 'user'}
+                <span className={`badge ${profile?.is_admin ? 'badge-admin' : 'badge-neutral'}`}>
+                  {profile?.is_admin ? 'admin' : 'user'}
                 </span>
               </div>
             </div>
