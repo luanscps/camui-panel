@@ -3,16 +3,33 @@ import UserActions from './UserActions'
 
 export const metadata = { title: 'Usuários — CAMUI Panel' }
 
+type User = {
+  id: string
+  full_name: string | null
+}
+
+type License = {
+  id: string
+  plan: string
+  status: string
+  expires_at: string | null
+  user_id: string
+}
+
 export default async function AdminUsersPage() {
-  const supabase = await createClient()
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const supabase = (await createClient()) as any
 
   const { data: users } = await supabase
     .from('profiles')
-    .select(`
-      id, full_name, email: id,
-      licenses ( id, plan, status, expires_at )
-    `)
-    .order('id')
+    .select('id, full_name')
+    .order('id') as { data: User[] | null }
+
+  const userIds = users?.map((u: User) => u.id) ?? []
+  const { data: licenses } = await supabase
+    .from('licenses')
+    .select('id, plan, status, expires_at, user_id')
+    .in('user_id', userIds) as { data: License[] | null }
 
   return (
     <main className="camui-content">
@@ -32,8 +49,8 @@ export default async function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {users?.map(u => {
-                const lic = Array.isArray(u.licenses) ? u.licenses[0] : u.licenses
+              {users?.map((u: User) => {
+                const lic = licenses?.find((l: License) => l.user_id === u.id)
                 return (
                   <tr key={u.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
                     <td style={{ padding: '0.75rem 1rem' }}>{u.full_name ?? '—'}</td>
