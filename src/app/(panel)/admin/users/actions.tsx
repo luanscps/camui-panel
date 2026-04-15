@@ -8,10 +8,12 @@ export async function updateLicenseAction(
   action: 'upgrade' | 'suspend' | 'activate'
 ) {
   const supabase = await createClient()
-  const update =
+
+  const update: { plan?: string; status?: string } =
     action === 'upgrade'  ? { plan: 'PRO' } :
     action === 'suspend'  ? { status: 'SUSPENDED' } :
                             { status: 'ACTIVE' }
+
   await supabase.from('licenses').update(update).eq('id', licenseId)
   revalidatePath('/admin/users')
 }
