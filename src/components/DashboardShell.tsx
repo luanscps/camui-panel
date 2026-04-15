@@ -31,9 +31,10 @@ const navItems = [
 ]
 
 const adminItems = [
-  { href: '/dashboard/admin',          label: 'Painel Admin',  icon: ShieldIcon },
-  { href: '/dashboard/admin/users',    label: 'Usuários',      icon: UsersIcon },
-  { href: '/dashboard/admin/licenses', label: 'Licenças',      icon: KeyIcon },
+  { href: '/dashboard/admin',                 label: 'Painel Admin',  icon: ShieldIcon },
+  { href: '/dashboard/admin/users',           label: 'Usuários',      icon: UsersIcon },
+  { href: '/dashboard/admin/licenses',        label: 'Licenças',      icon: KeyIcon },
+  { href: '/dashboard/admin/devices',         label: 'Dispositivos',  icon: DeviceIcon },
 ]
 
 export default function DashboardShell({ user, profile, license, children }: Props) {
@@ -41,10 +42,8 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
-  // Fecha sidebar ao navegar
   useEffect(() => { setSidebarOpen(false) }, [pathname])
 
-  // Bloqueia scroll do body quando sidebar aberta no mobile
   useEffect(() => {
     if (sidebarOpen) document.body.style.overflow = 'hidden'
     else document.body.style.overflow = ''
@@ -74,13 +73,14 @@ export default function DashboardShell({ user, profile, license, children }: Pro
   }
 
   const pageTitle = (() => {
-    if (pathname === '/dashboard')                         return 'Visão Geral'
-    if (pathname.startsWith('/dashboard/profile'))         return 'Perfil'
-    if (pathname.startsWith('/dashboard/license'))         return 'Licença'
-    if (pathname.startsWith('/dashboard/devices'))         return 'Dispositivos'
-    if (pathname === '/dashboard/admin')                   return 'Painel Admin'
-    if (pathname.startsWith('/dashboard/admin/users'))     return 'Usuários'
-    if (pathname.startsWith('/dashboard/admin/licenses'))  return 'Licenças'
+    if (pathname === '/dashboard')                              return 'Visão Geral'
+    if (pathname.startsWith('/dashboard/profile'))              return 'Perfil'
+    if (pathname.startsWith('/dashboard/license'))              return 'Licença'
+    if (pathname.startsWith('/dashboard/devices'))              return 'Dispositivos'
+    if (pathname === '/dashboard/admin')                        return 'Painel Admin'
+    if (pathname.startsWith('/dashboard/admin/users'))          return 'Usuários'
+    if (pathname.startsWith('/dashboard/admin/licenses'))       return 'Licenças'
+    if (pathname.startsWith('/dashboard/admin/devices'))        return 'Dispositivos'
     return 'Dashboard'
   })()
 
@@ -89,7 +89,6 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
   return (
     <div className="camui-layout">
-      {/* Overlay mobile */}
       {sidebarOpen && (
         <div
           onClick={() => setSidebarOpen(false)}
@@ -188,7 +187,6 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
       <div className="camui-main">
         <header className="camui-topbar">
-          {/* Botão hamburguer — visível apenas no mobile via CSS */}
           <button
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label={sidebarOpen ? 'Fechar menu' : 'Abrir menu'}
@@ -201,7 +199,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
               background: 'transparent',
               border: 'none',
               cursor: 'pointer',
-              display: 'none', // sobrescrito pelo CSS media query
+              display: 'none',
             }}
           >
             {sidebarOpen ? (
@@ -235,7 +233,6 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           </nav>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {/* Nome do usuário na topbar */}
             <span style={{
               fontSize: '0.8125rem',
               color: 'var(--color-text-muted)',
