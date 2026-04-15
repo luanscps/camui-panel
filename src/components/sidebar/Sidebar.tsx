@@ -61,11 +61,19 @@ const iconMonitor = (
   </svg>
 )
 
+const iconPhone = (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect x="5" y="2" width="14" height="20" rx="2"/>
+    <line x1="12" y1="18" x2="12" y2="18.01"/>
+  </svg>
+)
+
 export default function Sidebar({ userEmail, isAdmin, userInitials }: SidebarProps) {
   const pathname = usePathname()
 
   const isActive = (href: string) => {
     if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/admin')     return pathname === '/admin'
     return pathname.startsWith(href)
   }
 
@@ -108,7 +116,7 @@ export default function Sidebar({ userEmail, isAdmin, userInitials }: SidebarPro
           <>
             <span className="camui-sidebar-section" style={{ marginTop: '0.5rem' }}>Admin</span>
 
-            <Link href="/admin" className={`camui-nav-link ${isActive('/admin') && !isActive('/admin/users') && !isActive('/admin/licenses') ? 'active' : ''}`}>
+            <Link href="/admin" className={`camui-nav-link ${isActive('/admin') ? 'active' : ''}`}>
               {iconShield}
               Painel Admin
             </Link>
@@ -118,9 +126,14 @@ export default function Sidebar({ userEmail, isAdmin, userInitials }: SidebarPro
               Usuários
             </Link>
 
+            <Link href="/admin/devices" className={`camui-nav-link ${isActive('/admin/devices') ? 'active' : ''}`}>
+              {iconPhone}
+              Dispositivos
+            </Link>
+
             <Link href="/admin/licenses" className={`camui-nav-link ${isActive('/admin/licenses') ? 'active' : ''}`}>
               {iconKey}
-              Devices / Licenças
+              Licenças
             </Link>
           </>
         )}
