@@ -42,21 +42,19 @@ export default async function ProfilePage() {
           </div>
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>Função</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>
-                {profile?.is_admin ? 'Administrador' : 'Usuário'}
-              </div>
-              {profile?.is_admin && (
-                <span style={{
-                  fontSize: '0.65rem', fontWeight: 700,
-                  textTransform: 'uppercase', letterSpacing: '0.05em',
-                  color: 'var(--color-primary)',
-                  background: 'var(--color-primary-highlight)',
-                  padding: '0.15rem 0.5rem',
-                  borderRadius: 'var(--radius-full)'
-                }}>Admin</span>
-              )}
-            </div>
+            {profile?.is_admin ? (
+              <span style={{
+                display: 'inline-block',
+                fontSize: '0.75rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+                color: 'var(--color-primary)',
+                background: 'var(--color-primary-highlight)',
+                padding: '0.2rem 0.65rem',
+                borderRadius: 'var(--radius-full)'
+              }}>Administrador</span>
+            ) : (
+              <div style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>Usuário</div>
+            )}
           </div>
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '0.25rem' }}>Membro desde</div>
