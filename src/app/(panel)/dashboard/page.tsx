@@ -13,10 +13,17 @@ type License = {
 }
 
 type Device = {
-  id: string; license_id: string
-  device_name?: string | null
-  device_model?: string | null
-  activated_at: string; last_seen: string | null
+  id: string
+  license_id: string
+  device_name?:     string | null
+  device_brand?:    string | null
+  device_model?:    string | null
+  android_version?: string | null
+  android_id?:      string | null
+  sub_license_key?: string | null
+  status?:          string | null
+  activated_at:     string
+  last_seen:        string | null
 }
 
 function greeting(name: string) {
@@ -29,6 +36,18 @@ function daysUntil(dateStr: string | null): number | null {
   if (!dateStr) return null
   const diff = new Date(dateStr).getTime() - Date.now()
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
+}
+
+function deviceStatusColor(status?: string | null) {
+  if (status === 'SUSPENDED') return 'var(--color-warning)'
+  if (status === 'REVOKED')   return 'var(--color-error)'
+  return 'var(--color-success)'
+}
+
+function deviceStatusLabel(status?: string | null) {
+  if (status === 'SUSPENDED') return 'Suspenso'
+  if (status === 'REVOKED')   return 'Revogado'
+  return 'Ativo'
 }
 
 export default async function DashboardPage() {
@@ -45,9 +64,9 @@ export default async function DashboardPage() {
   const { data: devices } = license
     ? await (supabase as any)
         .from('device_activations')
-        .select('id, device_name, device_model, activated_at, last_seen')
+        .select('id, device_name, device_brand, device_model, android_version, android_id, sub_license_key, status, activated_at, last_seen')
         .eq('license_id', license.id)
-        .order('last_seen', { ascending: false }) as { data: Device[] | null }
+        .order('last_seen', { ascending: false, nullsFirst: false }) as { data: Device[] | null }
     : { data: [] as Device[] }
 
   const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'usuário'
@@ -79,7 +98,7 @@ export default async function DashboardPage() {
 
   return (
     <main className="camui-content">
-      {/* Cabeçalho com saudação */}
+      {/* Cabeçalho */}
       <div style={{ marginBottom: '1.75rem' }}>
         <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
           {greeting(displayName)}
@@ -89,7 +108,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Alertas topo */}
+      {/* Alertas */}
       {expiringSoon && (
         <div style={{ marginBottom: '1.25rem', padding: '0.875rem 1.25rem', background: 'var(--color-warning-bg)', border: '1px solid rgba(150,66,25,0.25)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
@@ -160,10 +179,9 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Licença detalhes + features */}
+      {/* Licença + features */}
       {license && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-          {/* Card info da licença */}
           <div className="card">
             <div className="card-header">
               <div>
@@ -195,7 +213,6 @@ export default async function DashboardPage() {
               ))}
             </div>
 
-            {/* Barra de expiração */}
             {license.expires_at && daysLeft !== null && (
               <div style={{ marginTop: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.3rem' }}>
@@ -214,7 +231,6 @@ export default async function DashboardPage() {
               </div>
             )}
 
-            {/* Upgrade banner */}
             {!isPro && license.status === 'ACTIVE' && (
               <div className="upgrade-banner" style={{ marginTop: '1rem' }}>
                 <div>
@@ -226,7 +242,6 @@ export default async function DashboardPage() {
             )}
           </div>
 
-          {/* Card features do plano */}
           <div className="card">
             <div className="card-header">
               <div>
@@ -250,63 +265,121 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Atalhos rápidos */}
+      {/* Atalhos */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div className="card-header">
           <div className="card-title">Atalhos</div>
           <div className="card-subtitle">Acesso rápido</div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <Link href="/dashboard/profile"   className="btn btn-secondary">👤 Meu Perfil</Link>
-          <Link href="/dashboard/license"   className="btn btn-secondary">🔑 Licença</Link>
-          <Link href="/dashboard/devices"   className="btn btn-secondary">📱 Dispositivos</Link>
+          <Link href="/dashboard/profile" className="btn btn-secondary">👤 Meu Perfil</Link>
+          <Link href="/dashboard/license" className="btn btn-secondary">🔑 Licença</Link>
+          <Link href="/dashboard/devices" className="btn btn-secondary">📱 Dispositivos</Link>
         </div>
       </div>
 
-      {/* Dispositivos */}
+      {/* Dispositivos — tabela expandida */}
       <div className="card">
         <div className="card-header">
           <div>
             <div className="card-title">Dispositivos Ativados</div>
             <div className="card-subtitle">
-              {activeDevices > 0 ? `${activeDevices} dispositivo${activeDevices > 1 ? 's' : ''} conectado${activeDevices > 1 ? 's' : ''}` : 'Nenhum dispositivo ativo'}
+              {activeDevices > 0
+                ? `${activeDevices} dispositivo${activeDevices > 1 ? 's' : ''} conectado${activeDevices > 1 ? 's' : ''}`
+                : 'Nenhum dispositivo ativo'}
             </div>
           </div>
           {activeDevices > 0 && (
             <Link href="/dashboard/devices" style={{ fontSize: '0.8125rem', color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 500 }}>Gerenciar →</Link>
           )}
         </div>
+
         {!devices || devices.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <rect x="5" y="2" width="14" height="20" rx="2"/>
+                <path d="M12 18h.01"/>
+              </svg>
             </div>
             <h3>Nenhum dispositivo ativado</h3>
             <p>Abra o app CAMSTREAMER-BR no seu Android e faça login para ativar automaticamente.</p>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            {(devices as Device[]).map((device) => (
-              <div key={device.id} style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', padding: '0.875rem 1rem', background: 'var(--color-surface-offset)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-                <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: 'rgba(1,105,111,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', flexShrink: 0 }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2"/><path d="M12 18h.01"/></svg>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)', marginBottom: 2 }}>
-                    {device.device_name || 'Dispositivo Android'}
-                  </div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    {device.device_model ?? 'Modelo não identificado'}
-                  </div>
-                </div>
-                <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', flexShrink: 0, textAlign: 'right' }}>
-                  <div>Último acesso</div>
-                  <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>
-                    {device.last_seen ? new Date(device.last_seen).toLocaleDateString('pt-BR') : '—'}
-                  </div>
-                </div>
-              </div>
-            ))}
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  {['Dispositivo', 'Marca', 'Modelo', 'Android', 'ID do Dispositivo', 'Sub-licença', 'Status', 'Último acesso'].map(col => (
+                    <th key={col} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {col}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(devices as Device[]).map((device, i) => (
+                  <tr key={device.id} style={{ borderBottom: i < devices.length - 1 ? '1px solid var(--color-border)' : 'none', transition: 'background 0.15s' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-offset)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                  >
+                    {/* Dispositivo */}
+                    <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 'var(--radius-sm)', background: 'rgba(1,105,111,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', flexShrink: 0 }}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <rect x="5" y="2" width="14" height="20" rx="2"/>
+                            <path d="M12 18h.01"/>
+                          </svg>
+                        </div>
+                        <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>
+                          {device.device_name || 'Android'}
+                        </span>
+                      </div>
+                    </td>
+                    {/* Marca */}
+                    <td style={{ padding: '0.75rem', color: 'var(--color-text)', whiteSpace: 'nowrap' }}>
+                      {device.device_brand ?? <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                    </td>
+                    {/* Modelo */}
+                    <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                      {device.device_model ?? <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                    </td>
+                    {/* Android version */}
+                    <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                      {device.android_version
+                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(1,105,111,0.08)', color: 'var(--color-primary)', fontSize: '0.75rem', fontWeight: 600 }}>Android {device.android_version}</span>
+                        : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                    </td>
+                    {/* android_id */}
+                    <td style={{ padding: '0.75rem' }}>
+                      {device.android_id
+                        ? <code style={{ fontSize: '0.7rem', background: 'var(--color-surface-offset)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>{device.android_id}</code>
+                        : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                    </td>
+                    {/* sub_license_key */}
+                    <td style={{ padding: '0.75rem' }}>
+                      {device.sub_license_key
+                        ? <code style={{ fontSize: '0.7rem', background: 'var(--color-surface-offset)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{device.sub_license_key}</code>
+                        : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                    </td>
+                    {/* Status */}
+                    <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', fontWeight: 600, color: deviceStatusColor(device.status) }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: deviceStatusColor(device.status), display: 'inline-block' }} />
+                        {deviceStatusLabel(device.status)}
+                      </span>
+                    </td>
+                    {/* Último acesso */}
+                    <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
+                      {device.last_seen
+                        ? new Date(device.last_seen).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
