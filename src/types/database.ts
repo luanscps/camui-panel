@@ -1,4 +1,6 @@
-export type Json =
+Need to install the following packages:
+supabase@2.91.2
+Ok to proceed? (y) export type Json =
   | string
   | number
   | boolean
@@ -17,27 +19,54 @@ export type Database = {
       device_activations: {
         Row: {
           activated_at: string | null
+          android_id: string | null
+          android_version: string | null
+          app_version: string | null
+          device_brand: string | null
+          device_hardware: string | null
           device_id: string
+          device_model: string | null
           device_name: string | null
+          fingerprint: string | null
           id: string
+          last_seen: string | null
           last_seen_at: string | null
           license_id: string
+          sdk_int: number | null
         }
         Insert: {
           activated_at?: string | null
+          android_id?: string | null
+          android_version?: string | null
+          app_version?: string | null
+          device_brand?: string | null
+          device_hardware?: string | null
           device_id: string
+          device_model?: string | null
           device_name?: string | null
+          fingerprint?: string | null
           id?: string
+          last_seen?: string | null
           last_seen_at?: string | null
           license_id: string
+          sdk_int?: number | null
         }
         Update: {
           activated_at?: string | null
+          android_id?: string | null
+          android_version?: string | null
+          app_version?: string | null
+          device_brand?: string | null
+          device_hardware?: string | null
           device_id?: string
+          device_model?: string | null
           device_name?: string | null
+          fingerprint?: string | null
           id?: string
+          last_seen?: string | null
           last_seen_at?: string | null
           license_id?: string
+          sdk_int?: number | null
         }
         Relationships: [
           {
@@ -61,6 +90,7 @@ export type Database = {
           created_at: string | null
           expires_at: string | null
           id: string
+          license_key: string | null
           max_devices: number
           plan: string
           status: string
@@ -71,6 +101,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          license_key?: string | null
           max_devices?: number
           plan?: string
           status?: string
@@ -81,6 +112,7 @@ export type Database = {
           created_at?: string | null
           expires_at?: string | null
           id?: string
+          license_key?: string | null
           max_devices?: number
           plan?: string
           status?: string
@@ -175,7 +207,7 @@ export type Database = {
   }
 }
 
-export type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
 
 type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
