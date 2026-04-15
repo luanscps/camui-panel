@@ -5,15 +5,15 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { revalidatePath } from 'next/cache'
 
 async function assertAdmin() {
-  const supabase = (await createClient()) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
   const { data: profile } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
-    .single() as unknown as { data: { is_admin: boolean } | null }
-  if (!profile?.is_admin) throw new Error('Acesso negado')
+    .single()
+  if (!profile || !profile.is_admin) throw new Error('Acesso negado')
   return supabase
 }
 
@@ -37,13 +37,11 @@ export async function updateLicenseAction(
 export async function deleteUserAction(userId: string) {
   await assertAdmin()
 
-  // Service Role client para deletar do auth.users (requer SUPABASE_SERVICE_ROLE_KEY)
   const adminClient = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 1. Deleta device_activations via licenças do usuário
   const { data: licenses } = await adminClient
     .from('licenses')
     .select('id')
@@ -58,21 +56,18 @@ export async function deleteUserAction(userId: string) {
     if (devErr) throw new Error(`Erro ao deletar devices: ${devErr.message}`)
   }
 
-  // 2. Deleta licenças
   const { error: licErr } = await adminClient
     .from('licenses')
     .delete()
     .eq('user_id', userId)
   if (licErr) throw new Error(`Erro ao deletar licenças: ${licErr.message}`)
 
-  // 3. Deleta profile
   const { error: profErr } = await adminClient
     .from('profiles')
     .delete()
     .eq('id', userId)
   if (profErr) throw new Error(`Erro ao deletar perfil: ${profErr.message}`)
 
-  // 4. Deleta do auth.users (requer service role)
   const { error: authErr } = await adminClient.auth.admin.deleteUser(userId)
   if (authErr) throw new Error(`Erro ao deletar usuário: ${authErr.message}`)
 
