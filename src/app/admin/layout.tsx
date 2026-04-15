@@ -1,38 +1,24 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Sidebar from '@/components/sidebar'
 
-type AdminProfile = { is_admin: boolean }
-
+/**
+ * Admin layout — apenas guarda de segurança.
+ * A shell visual (sidebar, topbar) vem do DashboardShell
+ * herdado pelo dashboard/layout.tsx que envolve toda a área autenticada.
+ * Se o usuário não for admin, redireciona para /dashboard.
+ */
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  const { data, error } = await supabase
+  const { data: profile } = await supabase
     .from('profiles')
-    .select('is_admin')
+    .select('role')
     .eq('id', user.id)
     .single()
 
-  const profile = data as AdminProfile | null
-  if (error || !profile || !profile.is_admin) redirect('/dashboard')
+  if (!profile || profile.role !== 'admin') redirect('/dashboard')
 
-  const initials = (user.email ?? 'A')
-    .split('@')[0]
-    .slice(0, 2)
-    .toUpperCase()
-
-  return (
-    <div className="camui-layout">
-      <Sidebar
-        userEmail={user.email ?? ''}
-        isAdmin={true}
-        userInitials={initials}
-      />
-      <div className="camui-main">
-        {children}
-      </div>
-    </div>
-  )
+  return <>{children}</>
 }

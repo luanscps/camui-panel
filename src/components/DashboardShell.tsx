@@ -59,19 +59,25 @@ export default function DashboardShell({ user, profile, license, children }: Pro
 
   function isActive(href: string) {
     if (href === '/dashboard') return pathname === '/dashboard'
+    if (href === '/admin')     return pathname === '/admin'
     return pathname.startsWith(href)
   }
 
   const pageTitle = (() => {
-    if (pathname === '/dashboard')          return 'Visão Geral'
-    if (pathname.startsWith('/dashboard/profile'))  return 'Perfil'
-    if (pathname.startsWith('/dashboard/license'))  return 'Licença'
-    if (pathname.startsWith('/dashboard/devices'))  return 'Dispositivos'
-    if (pathname.startsWith('/admin/users'))        return 'Usuários'
-    if (pathname.startsWith('/admin/licenses'))     return 'Licenças'
-    if (pathname.startsWith('/admin'))              return 'Painel Admin'
+    if (pathname === '/dashboard')                       return 'Visão Geral'
+    if (pathname.startsWith('/dashboard/profile'))       return 'Perfil'
+    if (pathname.startsWith('/dashboard/license'))       return 'Licença'
+    if (pathname.startsWith('/dashboard/devices'))       return 'Dispositivos'
+    if (pathname === '/admin')                           return 'Painel Admin'
+    if (pathname.startsWith('/admin/users'))             return 'Usuários'
+    if (pathname.startsWith('/admin/licenses'))          return 'Licenças'
     return 'Dashboard'
   })()
+
+  const isAdminArea = pathname.startsWith('/admin')
+  const breadcrumbBase = isAdminArea
+    ? { href: '/admin', label: 'Admin' }
+    : { href: '/dashboard', label: 'Dashboard' }
 
   return (
     <div className="camui-layout">
@@ -103,7 +109,7 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           </div>
         </Link>
 
-        {/* Nav */}
+        {/* Nav principal */}
         <nav className="camui-sidebar-nav" aria-label="Navegação principal">
           {navItems.map(({ section, links }) => (
             <div key={section}>
@@ -124,9 +130,13 @@ export default function DashboardShell({ user, profile, license, children }: Pro
             </div>
           ))}
 
+          {/* Seção admin — visível apenas para role=admin */}
           {isAdmin && (
             <div>
-              <div className="camui-sidebar-section">Administração</div>
+              <div className="camui-sidebar-section" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                <ShieldIcon />
+                Administração
+              </div>
               {adminItems.map(({ href, label, icon: Icon }) => (
                 <Link
                   key={href}
@@ -146,10 +156,31 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           <div className="camui-sidebar-user">
             <div className="camui-sidebar-avatar">{initials}</div>
             <div className="camui-sidebar-user-info">
+              <span className="camui-sidebar-user-name">
+                {profile.full_name ?? user.email.split('@')[0]}
+              </span>
               <span className="camui-sidebar-user-email">{user.email}</span>
+              {isAdmin && (
+                <span style={{
+                  fontSize: '0.65rem',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  color: 'var(--color-primary)',
+                  lineHeight: 1,
+                  marginTop: '0.125rem',
+                  display: 'block',
+                }}>
+                  Admin
+                </span>
+              )}
             </div>
           </div>
-          <button onClick={handleSignOut} className="camui-sidebar-signout" style={{ width: '100%', textAlign: 'left', padding: '0.375rem 0.75rem' }}>
+          <button
+            onClick={handleSignOut}
+            className="camui-sidebar-signout"
+            style={{ width: '100%', textAlign: 'left', padding: '0.375rem 0.75rem' }}
+          >
             Sair da conta
           </button>
         </div>
@@ -177,8 +208,8 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           </button>
 
           <nav className="camui-topbar-breadcrumb" aria-label="Breadcrumb">
-            <Link href="/dashboard">Dashboard</Link>
-            {pathname !== '/dashboard' && (
+            <Link href={breadcrumbBase.href}>{breadcrumbBase.label}</Link>
+            {pathname !== breadcrumbBase.href && (
               <>
                 <span aria-hidden>›</span>
                 <span style={{ color: 'var(--color-text)', fontWeight: 500 }}>{pageTitle}</span>
@@ -187,7 +218,20 @@ export default function DashboardShell({ user, profile, license, children }: Pro
           </nav>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {isPro ? (
+            {isAdminArea ? (
+              <span style={{
+                fontSize: 'var(--text-xs)',
+                fontWeight: 600,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                color: 'var(--color-primary)',
+                background: 'var(--color-primary-highlight)',
+                padding: '0.2rem 0.6rem',
+                borderRadius: 'var(--radius-full)',
+              }}>
+                Admin
+              </span>
+            ) : isPro ? (
               <span className="badge badge-pro">PRO</span>
             ) : (
               <Link href="/dashboard/license" className="badge badge-basic" style={{ textDecoration: 'none', cursor: 'pointer' }}>BASIC</Link>
@@ -202,6 +246,22 @@ export default function DashboardShell({ user, profile, license, children }: Pro
         @media (max-width: 768px) {
           .hamburger-btn { display: flex !important; }
           .sidebar-overlay { display: block !important; }
+        }
+        .camui-sidebar-user-name {
+          font-size: var(--text-sm);
+          font-weight: 500;
+          color: var(--color-text);
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .camui-sidebar-user-email {
+          font-size: var(--text-xs);
+          color: var(--color-text-muted);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
       `}</style>
     </div>
