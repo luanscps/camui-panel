@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import type { Database } from '@/types/database'
 
 type LicenseInsert = Database['public']['Tables']['licenses']['Insert']
+type LicenseUpdate = Database['public']['Tables']['licenses']['Update']
 
 async function checkAdmin() {
   const supabase = await createClient()
@@ -53,14 +54,15 @@ export async function updateLicenseAction(data: {
 }) {
   await checkAdmin()
   const supabase = await createClient()
+  const payload: LicenseUpdate = {
+    plan:        data.plan,
+    status:      data.status,
+    max_devices: data.maxDevices,
+    expires_at:  data.expiresAt || null,
+  }
   const { error } = await supabase
     .from('licenses')
-    .update({
-      plan:        data.plan,
-      status:      data.status,
-      max_devices: data.maxDevices,
-      expires_at:  data.expiresAt || null,
-    })
+    .update(payload as never)
     .eq('id', data.licenseId)
   if (error) throw new Error(`Erro ao atualizar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
