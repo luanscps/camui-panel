@@ -2,8 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { Database } from '@/types/database'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 
 async function assertAdmin(): Promise<SupabaseClient<Database>> {
   const supabase = await createClient()
@@ -16,7 +16,9 @@ async function assertAdmin(): Promise<SupabaseClient<Database>> {
     .eq('id', user.id)
     .single()
 
-  if (!profile?.is_admin) throw new Error('Acesso negado')
+  // ← correção: verifica null explicitamente antes de acessar .is_admin
+  if (!profile || !profile.is_admin) throw new Error('Acesso negado')
+
   return supabase
 }
 
@@ -29,12 +31,12 @@ export async function createLicenseAction(data: {
 }) {
   const supabase = await assertAdmin()
   const { error } = await supabase.from('licenses').insert({
-    user_id:    data.userId,
-    plan:       data.plan,
-    status:     data.status,
-    max_devices: data.maxDevices,
-    expires_at: data.expiresAt || null,
-    account_number: crypto.randomUUID(), // requerido pelo schema NOT NULL
+    user_id:        data.userId,
+    plan:           data.plan,
+    status:         data.status,
+    max_devices:    data.maxDevices,
+    expires_at:     data.expiresAt || null,
+    account_number: crypto.randomUUID(),
   })
   if (error) throw new Error(`Erro ao criar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')

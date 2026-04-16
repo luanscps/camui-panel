@@ -21,7 +21,6 @@ export async function GET(req: NextRequest) {
   if (!sub_license_key)
     return NextResponse.json({ ok: false, error: 'Authorization header ausente' }, { status: 401 })
 
-  // Busca device + licença + features em uma query só
   const { data: device, error } = await supabaseAdmin
     .from('device_activations')
     .select(`

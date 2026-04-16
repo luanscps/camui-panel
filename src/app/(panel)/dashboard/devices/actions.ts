@@ -5,7 +5,6 @@ import { revalidatePath } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
-/** Verifica ownership e retorna a activation */
 async function getOwnedActivation(
   supabase: SupabaseClient<Database>,
   activationId: string,
@@ -22,7 +21,6 @@ async function getOwnedActivation(
   return data
 }
 
-/** Remove permanentemente o dispositivo */
 export async function revokeDeviceAction(activationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -39,7 +37,6 @@ export async function revokeDeviceAction(activationId: string) {
   revalidatePath('/dashboard/devices')
 }
 
-/** Suspende a sub-licença do dispositivo (bloqueia o acesso sem remover) */
 export async function suspendDeviceAction(activationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -57,7 +54,6 @@ export async function suspendDeviceAction(activationId: string) {
   revalidatePath('/dashboard/devices')
 }
 
-/** Reativa uma sub-licença suspensa */
 export async function reactivateDeviceAction(activationId: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
