@@ -2,25 +2,22 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { Database } from '@/types/database'
 
-type ProfileRow = Database['public']['Tables']['profiles']['Row']
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
 async function assertAdmin(): Promise<SupabaseServerClient> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('N\u00e3o autenticado')
+  if (!user) throw new Error('Não autenticado')
 
-  const { data } = await supabase
+  const { data: profile } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
     .single()
 
-  const profile = data as Pick<ProfileRow, 'is_admin'> | null
-
-  if (!profile || !profile.is_admin) throw new Error('Acesso negado')
+  if (!profile || !(profile as { is_admin: boolean }).is_admin)
+    throw new Error('Acesso negado')
 
   return supabase
 }
@@ -41,7 +38,7 @@ export async function createLicenseAction(data: {
     expires_at:     data.expiresAt || null,
     account_number: crypto.randomUUID(),
   })
-  if (error) throw new Error(`Erro ao criar licen\u00e7a: ${error.message}`)
+  if (error) throw new Error(`Erro ao criar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
@@ -64,7 +61,7 @@ export async function updateLicenseAction(data: {
       expires_at:  data.expiresAt || null,
     })
     .eq('id', data.licenseId)
-  if (error) throw new Error(`Erro ao atualizar licen\u00e7a: ${error.message}`)
+  if (error) throw new Error(`Erro ao atualizar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
@@ -74,7 +71,7 @@ export async function deleteLicenseAction(licenseId: string) {
   const supabase = await assertAdmin()
   await supabase.from('device_activations').delete().eq('license_id', licenseId)
   const { error } = await supabase.from('licenses').delete().eq('id', licenseId)
-  if (error) throw new Error(`Erro ao deletar licen\u00e7a: ${error.message}`)
+  if (error) throw new Error(`Erro ao deletar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
