@@ -5,17 +5,20 @@ import { revalidatePath } from 'next/cache'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
+type ProfileRow = Database['public']['Tables']['profiles']['Row']
+
 async function assertAdmin(): Promise<SupabaseClient<Database>> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
+  if (!user) throw new Error('N\u00e3o autenticado')
 
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
-    .returns<{ is_admin: boolean }>()
     .single()
+
+  const profile = data as Pick<ProfileRow, 'is_admin'> | null
 
   if (!profile || !profile.is_admin) throw new Error('Acesso negado')
 
@@ -38,7 +41,7 @@ export async function createLicenseAction(data: {
     expires_at:     data.expiresAt || null,
     account_number: crypto.randomUUID(),
   })
-  if (error) throw new Error(`Erro ao criar licença: ${error.message}`)
+  if (error) throw new Error(`Erro ao criar licen\u00e7a: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
@@ -61,7 +64,7 @@ export async function updateLicenseAction(data: {
       expires_at:  data.expiresAt || null,
     })
     .eq('id', data.licenseId)
-  if (error) throw new Error(`Erro ao atualizar licença: ${error.message}`)
+  if (error) throw new Error(`Erro ao atualizar licen\u00e7a: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
@@ -71,7 +74,7 @@ export async function deleteLicenseAction(licenseId: string) {
   const supabase = await assertAdmin()
   await supabase.from('device_activations').delete().eq('license_id', licenseId)
   const { error } = await supabase.from('licenses').delete().eq('id', licenseId)
-  if (error) throw new Error(`Erro ao deletar licença: ${error.message}`)
+  if (error) throw new Error(`Erro ao deletar licen\u00e7a: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
