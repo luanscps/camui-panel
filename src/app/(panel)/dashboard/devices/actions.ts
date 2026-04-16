@@ -18,10 +18,12 @@ async function getOwnedActivation(
     .eq('id', activationId)
     .single()
 
-  if (!data) throw new Error('Permissão negada')
-  const licenseUserId = (data.licenses as { user_id: string } | null)?.user_id
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const row = data as any
+  if (!row) throw new Error('Permissão negada')
+  const licenseUserId = (row.licenses as { user_id: string } | null)?.user_id
   if (licenseUserId !== userId) throw new Error('Permissão negada')
-  return data
+  return row as { id: string; status: string; license_id: string }
 }
 
 export async function revokeDeviceAction(activationId: string) {
