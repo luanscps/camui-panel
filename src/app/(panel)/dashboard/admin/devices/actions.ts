@@ -14,14 +14,14 @@ async function guardAdmin() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
 
-  const { data: profile } = await (supabase as any)
+  const { data: profile } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
     .single()
 
   if (!profile?.is_admin) throw new Error('Sem permissão de administrador')
-  return supabase as any
+  return supabase
 }
 
 export async function suspendDevice(deviceId: string) {

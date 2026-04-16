@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function updateNameAction(fullName: string) {
-  const supabase = (await createClient()) as any // eslint-disable-line @typescript-eslint/no-explicit-any
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
 
@@ -14,6 +14,5 @@ export async function updateNameAction(fullName: string) {
     .eq('id', user.id)
 
   if (error) throw new Error(`Falha ao atualizar nome: ${error.message}`)
-
   revalidatePath('/dashboard/profile')
 }

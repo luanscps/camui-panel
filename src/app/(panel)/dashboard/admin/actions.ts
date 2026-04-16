@@ -2,13 +2,20 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import type { Database } from '@/types/database'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
-async function assertAdmin() {
-  const supabase = (await createClient()) as any // eslint-disable-line
+async function assertAdmin(): Promise<SupabaseClient<Database>> {
+  const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
+
   const { data: profile } = await supabase
-    .from('profiles').select('is_admin').eq('id', user.id).single()
+    .from('profiles')
+    .select('is_admin')
+    .eq('id', user.id)
+    .single()
+
   if (!profile?.is_admin) throw new Error('Acesso negado')
   return supabase
 }
@@ -22,11 +29,12 @@ export async function createLicenseAction(data: {
 }) {
   const supabase = await assertAdmin()
   const { error } = await supabase.from('licenses').insert({
-    user_id: data.userId,
-    plan: data.plan,
-    status: data.status,
+    user_id:    data.userId,
+    plan:       data.plan,
+    status:     data.status,
     max_devices: data.maxDevices,
     expires_at: data.expiresAt || null,
+    account_number: crypto.randomUUID(), // requerido pelo schema NOT NULL
   })
   if (error) throw new Error(`Erro ao criar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
@@ -42,12 +50,15 @@ export async function updateLicenseAction(data: {
   expiresAt: string | null
 }) {
   const supabase = await assertAdmin()
-  const { error } = await supabase.from('licenses').update({
-    plan: data.plan,
-    status: data.status,
-    max_devices: data.maxDevices,
-    expires_at: data.expiresAt || null,
-  }).eq('id', data.licenseId)
+  const { error } = await supabase
+    .from('licenses')
+    .update({
+      plan:        data.plan,
+      status:      data.status,
+      max_devices: data.maxDevices,
+      expires_at:  data.expiresAt || null,
+    })
+    .eq('id', data.licenseId)
   if (error) throw new Error(`Erro ao atualizar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
