@@ -10,12 +10,14 @@ type DeviceRow = {
   device_model: string | null
   android_version: string | null
   android_id: string | null
+  app_version: string | null
+  sdk_int: number | null
   status: string
-  license_key: string | null
+  sub_license_key: string | null
   last_seen_at: string | null
-  created_at: string | null
+  activated_at: string | null
   license_id: string
-  licenses: { plan: string; user_id: string } | null
+  licenses: { plan: string; user_id: string; license_key: string | null } | null
 }
 
 type Profile = { id: string; full_name: string | null }
@@ -23,15 +25,17 @@ type Profile = { id: string; full_name: string | null }
 export default async function AdminDevicesPage() {
   const supabase = (await createClient()) as any // eslint-disable-line
 
-  const { data: devices } = await supabase
+  const { data: devices, error } = await supabase
     .from('device_activations')
     .select(`
       id, device_name, device_brand, device_model,
-      android_version, android_id, status,
-      license_key, last_seen_at, created_at, license_id,
-      licenses ( plan, user_id )
+      android_version, android_id, app_version, sdk_int,
+      status, sub_license_key, last_seen_at, activated_at, license_id,
+      licenses ( plan, user_id, license_key )
     `)
-    .order('created_at', { ascending: false }) as { data: DeviceRow[] | null }
+    .order('last_seen_at', { ascending: false, nullsFirst: false }) as { data: DeviceRow[] | null; error: unknown }
+
+  if (error) console.error('[AdminDevices] query error:', error)
 
   const userIds = [...new Set(
     devices?.map((d) => d.licenses?.user_id).filter(Boolean) ?? []
@@ -58,6 +62,11 @@ export default async function AdminDevicesPage() {
 
   return (
     <main className="camui-content">
+      <style>{`
+        .device-row { transition: background 0.15s; }
+        .device-row:hover { background: var(--color-surface-offset); }
+      `}</style>
+
       <div style={{ marginBottom: '1.75rem' }}>
         <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
           Dispositivos
@@ -131,7 +140,7 @@ export default async function AdminDevicesPage() {
                 const isOnline = minutesAgo !== null && minutesAgo < 5
 
                 return (
-                  <tr key={dev.id} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <tr key={dev.id} className="device-row" style={{ borderBottom: '1px solid var(--color-border)' }}>
 
                     {/* Dispositivo */}
                     <td style={{ padding: '0.75rem 1rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
@@ -155,6 +164,7 @@ export default async function AdminDevicesPage() {
                     {/* Android */}
                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
                       {dev.android_version ? `Android ${dev.android_version}` : '—'}
+                      {dev.sdk_int ? <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem', opacity: 0.6 }}>(SDK {dev.sdk_int})</span> : null}
                     </td>
 
                     {/* Android ID */}
@@ -191,7 +201,7 @@ export default async function AdminDevicesPage() {
                         borderRadius: 'var(--radius-sm)',
                         fontSize: '0.7rem',
                       }}>
-                        {dev.license_key ? dev.license_key.slice(0, 14) + '…' : '—'}
+                        {dev.sub_license_key ? dev.sub_license_key.slice(0, 14) + '…' : '—'}
                       </code>
                     </td>
 
