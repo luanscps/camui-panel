@@ -5,11 +5,13 @@ import { revalidatePath } from 'next/cache'
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
+
 function assertValidUUID(id: string) {
   if (!id || !UUID_REGEX.test(id)) throw new Error('ID de dispositivo inválido')
 }
 
-async function guardAdmin() {
+async function guardAdmin(): Promise<SupabaseServerClient> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
@@ -20,7 +22,9 @@ async function guardAdmin() {
     .eq('id', user.id)
     .single()
 
-  if (!profile?.is_admin) throw new Error('Sem permissão de administrador')
+  if (!profile || !(profile as { is_admin: boolean }).is_admin)
+    throw new Error('Sem permissão de administrador')
+
   return supabase
 }
 
