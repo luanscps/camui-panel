@@ -2,12 +2,11 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
 
-async function assertAdmin(): Promise<SupabaseClient<Database>> {
+async function assertAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('N\u00e3o autenticado')
