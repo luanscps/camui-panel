@@ -11,7 +11,8 @@ type Props = {
 
 export default function DeviceActionsClient({ deviceId, currentStatus, deviceName }: Props) {
   const [pending, startTransition] = useTransition()
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError]           = useState<string | null>(null)
+  const [confirming, setConfirming] = useState(false)
 
   function run(action: () => Promise<void>) {
     setError(null)
@@ -26,10 +27,35 @@ export default function DeviceActionsClient({ deviceId, currentStatus, deviceNam
     padding: '0.3rem 0.65rem',
     borderRadius: 'var(--radius-sm)',
     border: '1px solid',
-    cursor: 'pointer',
+    cursor: pending ? 'not-allowed' : 'pointer',
     opacity: pending ? 0.55 : 1,
     transition: '180ms',
     background: 'transparent',
+  }
+
+  if (confirming) {
+    return (
+      <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.75rem', color: 'var(--color-error)', fontWeight: 500 }}>
+          Revogar "{deviceName}"?
+        </span>
+        <button
+          disabled={pending}
+          onClick={() => { setConfirming(false); run(() => revokeDevice(deviceId)) }}
+          style={{ ...base, color: 'var(--color-error)', borderColor: 'var(--color-error)', background: 'var(--color-error-highlight)' }}
+        >
+          {pending ? '…' : '✓ Confirmar'}
+        </button>
+        <button
+          disabled={pending}
+          onClick={() => setConfirming(false)}
+          style={{ ...base, color: 'var(--color-text-muted)', borderColor: 'var(--color-border)' }}
+        >
+          Cancelar
+        </button>
+        {error && <span style={{ fontSize: '0.7rem', color: 'var(--color-error)' }}>{error}</span>}
+      </div>
+    )
   }
 
   return (
@@ -68,18 +94,14 @@ export default function DeviceActionsClient({ deviceId, currentStatus, deviceNam
       {currentStatus !== 'REVOKED' && (
         <button
           disabled={pending}
-          onClick={() => {
-            if (confirm(`Revogar "${deviceName}"?\nO acesso será bloqueado permanentemente.`)) {
-              run(() => revokeDevice(deviceId))
-            }
-          }}
+          onClick={() => setConfirming(true)}
           style={{ ...base, color: 'var(--color-error)', borderColor: 'var(--color-error)', background: 'var(--color-error-highlight)' }}
         >
-          {pending ? '…' : '✕ Revogar'}
+          ✕ Revogar
         </button>
       )}
 
-      {error && (
+      {error && !confirming && (
         <span style={{ fontSize: '0.7rem', color: 'var(--color-error)' }}>{error}</span>
       )}
     </div>
