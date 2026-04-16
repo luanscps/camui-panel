@@ -14,9 +14,9 @@ async function assertAdmin(): Promise<SupabaseClient<Database>> {
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
+    .returns<{ is_admin: boolean }>()
     .single()
 
-  // ← correção: verifica null explicitamente antes de acessar .is_admin
   if (!profile || !profile.is_admin) throw new Error('Acesso negado')
 
   return supabase
