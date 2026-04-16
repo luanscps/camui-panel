@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function updateNameAction(fullName: string) {
-  const supabase = await createClient()
+  const supabase = (await createClient()) as any // eslint-disable-line @typescript-eslint/no-explicit-any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('Não autenticado')
 
