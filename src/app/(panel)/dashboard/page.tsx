@@ -98,6 +98,11 @@ export default async function DashboardPage() {
 
   return (
     <main className="camui-content">
+      <style>{`
+        .device-row { transition: background 0.15s; }
+        .device-row:hover { background: var(--color-surface-offset); }
+      `}</style>
+
       {/* Cabeçalho */}
       <div style={{ marginBottom: '1.75rem' }}>
         <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
@@ -319,10 +324,7 @@ export default async function DashboardPage() {
               </thead>
               <tbody>
                 {(devices as Device[]).map((device, i) => (
-                  <tr key={device.id} style={{ borderBottom: i < devices.length - 1 ? '1px solid var(--color-border)' : 'none', transition: 'background 0.15s' }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-offset)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-                  >
+                  <tr key={device.id} className="device-row" style={{ borderBottom: i < devices.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
                     {/* Dispositivo */}
                     <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
