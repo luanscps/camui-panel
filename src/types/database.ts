@@ -30,6 +30,9 @@ export type Database = {
           last_seen: string | null
           last_seen_at: string | null
           license_id: string
+          mobileapi_device_id: number | null
+          phone_image_url: string | null
+          phone_specs: Json | null
           sdk_int: number | null
           status: string
           sub_license_key: string | null
@@ -49,6 +52,9 @@ export type Database = {
           last_seen?: string | null
           last_seen_at?: string | null
           license_id: string
+          mobileapi_device_id?: number | null
+          phone_image_url?: string | null
+          phone_specs?: Json | null
           sdk_int?: number | null
           status?: string
           sub_license_key?: string | null
@@ -68,6 +74,9 @@ export type Database = {
           last_seen?: string | null
           last_seen_at?: string | null
           license_id?: string
+          mobileapi_device_id?: number | null
+          phone_image_url?: string | null
+          phone_specs?: Json | null
           sdk_int?: number | null
           status?: string
           sub_license_key?: string | null
@@ -91,6 +100,7 @@ export type Database = {
       }
       licenses: {
         Row: {
+          account_number: string
           created_at: string | null
           expires_at: string | null
           id: string
@@ -102,6 +112,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          account_number: string
           created_at?: string | null
           expires_at?: string | null
           id?: string
@@ -113,6 +124,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          account_number?: string
           created_at?: string | null
           expires_at?: string | null
           id?: string
@@ -132,6 +144,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      plan_features: {
+        Row: {
+          created_at: string | null
+          front_camera: boolean
+          local_recording: boolean
+          max_bitrate_kbps: number
+          max_devices: number
+          max_resolution: string
+          max_rtmp_outputs: number
+          max_stream_minutes: number
+          plan: string
+          updated_at: string | null
+          web_control: boolean
+        }
+        Insert: {
+          created_at?: string | null
+          front_camera?: boolean
+          local_recording?: boolean
+          max_bitrate_kbps?: number
+          max_devices?: number
+          max_resolution?: string
+          max_rtmp_outputs?: number
+          max_stream_minutes?: number
+          plan: string
+          updated_at?: string | null
+          web_control?: boolean
+        }
+        Update: {
+          created_at?: string | null
+          front_camera?: boolean
+          local_recording?: boolean
+          max_bitrate_kbps?: number
+          max_devices?: number
+          max_resolution?: string
+          max_rtmp_outputs?: number
+          max_stream_minutes?: number
+          plan?: string
+          updated_at?: string | null
+          web_control?: boolean
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
