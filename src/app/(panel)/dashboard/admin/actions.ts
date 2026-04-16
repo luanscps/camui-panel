@@ -3,23 +3,18 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
-
-async function assertAdmin(): Promise<SupabaseServerClient> {
+async function checkAdmin() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) throw new Error('Não autenticado')
-
-  const { data: profile } = await supabase
+  if (!user) throw new Error('N\u00e3o autenticado')
+  const { data } = await supabase
     .from('profiles')
     .select('is_admin')
     .eq('id', user.id)
     .single()
-
-  if (!profile || !(profile as { is_admin: boolean }).is_admin)
+  if (!data || !(data as { is_admin: boolean }).is_admin)
     throw new Error('Acesso negado')
-
-  return supabase
+  return user
 }
 
 export async function createLicenseAction(data: {
@@ -29,7 +24,8 @@ export async function createLicenseAction(data: {
   maxDevices: number
   expiresAt: string | null
 }) {
-  const supabase = await assertAdmin()
+  await checkAdmin()
+  const supabase = await createClient()
   const { error } = await supabase.from('licenses').insert({
     user_id:        data.userId,
     plan:           data.plan,
@@ -38,7 +34,7 @@ export async function createLicenseAction(data: {
     expires_at:     data.expiresAt || null,
     account_number: crypto.randomUUID(),
   })
-  if (error) throw new Error(`Erro ao criar licença: ${error.message}`)
+  if (error) throw new Error(`Erro ao criar licen\u00e7a: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
@@ -51,7 +47,8 @@ export async function updateLicenseAction(data: {
   maxDevices: number
   expiresAt: string | null
 }) {
-  const supabase = await assertAdmin()
+  await checkAdmin()
+  const supabase = await createClient()
   const { error } = await supabase
     .from('licenses')
     .update({
@@ -61,17 +58,18 @@ export async function updateLicenseAction(data: {
       expires_at:  data.expiresAt || null,
     })
     .eq('id', data.licenseId)
-  if (error) throw new Error(`Erro ao atualizar licença: ${error.message}`)
+  if (error) throw new Error(`Erro ao atualizar licen\u00e7a: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
 }
 
 export async function deleteLicenseAction(licenseId: string) {
-  const supabase = await assertAdmin()
+  await checkAdmin()
+  const supabase = await createClient()
   await supabase.from('device_activations').delete().eq('license_id', licenseId)
   const { error } = await supabase.from('licenses').delete().eq('id', licenseId)
-  if (error) throw new Error(`Erro ao deletar licença: ${error.message}`)
+  if (error) throw new Error(`Erro ao deletar licen\u00e7a: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
   revalidatePath('/dashboard/admin')
