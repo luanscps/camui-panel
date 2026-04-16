@@ -119,7 +119,7 @@ export default async function AdminDevicesPage() {
     acc.devices.push(dev)
   }
 
-  const accounts = [...accountMap.values()]
+  const accounts = JSON.parse(JSON.stringify([...accountMap.values()])) as AccountRow[]
 
   const totalAccounts  = accounts.length
   const totalDevices   = devices?.length ?? 0
