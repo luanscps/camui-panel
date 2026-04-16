@@ -18,8 +18,9 @@ async function getOwnedActivation(
     .eq('id', activationId)
     .single()
 
-  const licenseUserId = (data?.licenses as { user_id: string } | null)?.user_id
-  if (!data || licenseUserId !== userId) throw new Error('Permissão negada')
+  if (!data) throw new Error('Permissão negada')
+  const licenseUserId = (data.licenses as { user_id: string } | null)?.user_id
+  if (licenseUserId !== userId) throw new Error('Permissão negada')
   return data
 }
 
