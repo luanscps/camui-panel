@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@/types/database'
 
+type DeviceUpdate = Database['public']['Tables']['device_activations']['Update']
+
 const supabaseAdmin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -47,7 +49,6 @@ export async function GET(req: NextRequest) {
   if (device.status === 'REVOKED')
     return NextResponse.json({ ok: false, error: 'Dispositivo revogado' }, { status: 403 })
 
-  // O Supabase tipado retorna licenses como objeto ou array dependendo da relação
   const license = Array.isArray(device.licenses) ? device.licenses[0] : device.licenses
   if (!license || license.status !== 'ACTIVE')
     return NextResponse.json({ ok: false, error: `Licença ${license?.status ?? 'inválida'}` }, { status: 403 })
@@ -55,10 +56,10 @@ export async function GET(req: NextRequest) {
   if (license.expires_at && new Date(license.expires_at) < new Date())
     return NextResponse.json({ ok: false, error: 'Licença expirada' }, { status: 403 })
 
-  // Atualiza last_seen_at (fire and forget)
+  const payload: DeviceUpdate = { last_seen_at: new Date().toISOString() }
   supabaseAdmin
     .from('device_activations')
-    .update({ last_seen_at: new Date().toISOString() })
+    .update(payload as never)
     .eq('id', device.id)
     .then(() => {})
 

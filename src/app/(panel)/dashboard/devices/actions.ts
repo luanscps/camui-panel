@@ -2,7 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import type { Database } from '@/types/database'
 
+type DeviceUpdate = Database['public']['Tables']['device_activations']['Update']
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
 async function getOwnedActivation(
@@ -45,9 +47,10 @@ export async function suspendDeviceAction(activationId: string) {
   const activation = await getOwnedActivation(supabase, activationId, user.id)
   if (activation.status === 'SUSPENDED') throw new Error('Já está suspenso')
 
+  const payload: DeviceUpdate = { status: 'SUSPENDED' }
   const { error } = await supabase
     .from('device_activations')
-    .update({ status: 'SUSPENDED' })
+    .update(payload as never)
     .eq('id', activationId)
 
   if (error) throw new Error(`Falha ao suspender: ${error.message}`)
@@ -62,9 +65,10 @@ export async function reactivateDeviceAction(activationId: string) {
   const activation = await getOwnedActivation(supabase, activationId, user.id)
   if (activation.status === 'ACTIVE') throw new Error('Já está ativo')
 
+  const payload: DeviceUpdate = { status: 'ACTIVE' }
   const { error } = await supabase
     .from('device_activations')
-    .update({ status: 'ACTIVE' })
+    .update(payload as never)
     .eq('id', activationId)
 
   if (error) throw new Error(`Falha ao reativar: ${error.message}`)

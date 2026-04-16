@@ -5,8 +5,12 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database'
 
-const supabaseAdmin = createClient(
+type DeviceInsert = Database['public']['Tables']['device_activations']['Insert']
+type DeviceUpdate = Database['public']['Tables']['device_activations']['Update']
+
+const supabaseAdmin = createClient<Database>(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
   { auth: { persistSession: false } }
@@ -97,7 +101,7 @@ export async function POST(req: NextRequest) {
   const fingerprint = [body.device_brand ?? '', body.device_model ?? '', body.device_hardware ?? '', android_id].join('|')
   const now = new Date().toISOString()
 
-  const updateData = {
+  const updateData: DeviceUpdate = {
     device_name:     body.device_name     ?? null,
     device_brand:    body.device_brand    ?? null,
     device_model:    body.device_model    ?? null,
@@ -110,24 +114,26 @@ export async function POST(req: NextRequest) {
     last_seen_at:    now,
   }
 
+  const insertData: DeviceInsert = {
+    ...updateData,
+    license_id:      license.id,
+    android_id:      android_id.trim(),
+    device_id:       uuidv4(),
+    activated_at:    now,
+    status:          'ACTIVE',
+    sub_license_key: generateSubLicenseKey(),
+  }
+
   const { data: upserted, error: upsertErr } = existingDevice
     ? await supabaseAdmin
         .from('device_activations')
-        .update(updateData)
+        .update(updateData as never)
         .eq('id', existingDevice.id)
         .select('id, sub_license_key, status')
         .single()
     : await supabaseAdmin
         .from('device_activations')
-        .insert({
-          ...updateData,
-          license_id:      license.id,
-          android_id:      android_id.trim(),
-          device_id:       uuidv4(),
-          activated_at:    now,
-          status:          'ACTIVE',
-          sub_license_key: generateSubLicenseKey(),
-        })
+        .insert(insertData as never)
         .select('id, sub_license_key, status')
         .single()
 
@@ -136,7 +142,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'Erro ao registrar dispositivo' }, { status: 500 })
   }
 
-  // Fire-and-forget: busca foto + specs na MobileAPI
   if (body.device_brand && body.device_model) {
     const edgeUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/sync-phone-image`
     fetch(edgeUrl, {
