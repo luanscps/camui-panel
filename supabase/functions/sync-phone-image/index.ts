@@ -6,9 +6,7 @@ const SUPABASE_URL  = Deno.env.get("SUPABASE_URL")  ?? "";
 const SERVICE_KEY   = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const BUCKET        = "phone-images";
 
-const supabase = createClient(SUPABASE_URL, SERVICE_KEY, {
-  auth: { persistSession: false },
-});
+const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
 function slugify(text: string): string {
   return text.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
@@ -20,16 +18,32 @@ async function ensureBucket() {
   if (!exists) await supabase.storage.createBucket(BUCKET, { public: true });
 }
 
+/**
+ * Tenta buscar o device na MobileAPI com múltiplas estratégias:
+ * 1. brand + model (nome comercial: Build.MANUFACTURER + Build.MODEL)
+ * 2. Somente brand + model sem o codename
+ * 3. Fallback: só model
+ */
 async function searchDevice(brand: string, model: string) {
-  const q = encodeURIComponent(`${brand} ${model}`);
-  const res = await fetch(`https://api.mobileapi.dev/v1/devices/search?name=${q}&limit=5`, {
-    headers: { "X-Api-Key": MOBILEAPI_KEY },
-  });
-  if (!res.ok) throw new Error(`MobileAPI search error: ${res.status}`);
-  const json = await res.json();
-  const devices: any[] = json.devices ?? json.data ?? json ?? [];
-  if (!devices.length) return null;
-  return devices.sort((a: any, b: any) => (b.match_certainty ?? 0) - (a.match_certainty ?? 0))[0];
+  const queries = [
+    `${brand} ${model}`,
+    model,
+    brand,
+  ];
+
+  for (const q of queries) {
+    const res = await fetch(
+      `https://api.mobileapi.dev/v1/devices/search?name=${encodeURIComponent(q)}&limit=5`,
+      { headers: { "X-Api-Key": MOBILEAPI_KEY } }
+    );
+    if (!res.ok) continue;
+    const json = await res.json();
+    const devices: any[] = json.devices ?? json.data ?? (Array.isArray(json) ? json : []);
+    if (devices.length) {
+      return devices.sort((a: any, b: any) => (b.match_certainty ?? 0) - (a.match_certainty ?? 0))[0];
+    }
+  }
+  return null;
 }
 
 async function getDeviceDetail(deviceId: number) {
@@ -48,35 +62,54 @@ async function uploadImage(imageUrl: string, slug: string): Promise<string | nul
     const { error } = await supabase.storage
       .from(BUCKET)
       .upload(`${slug}.png`, buffer, { contentType: "image/png", upsert: true });
-    if (error) return null;
-    const { data } = supabase.storage.from(BUCKET).getPublicUrl(`${slug}.png");
+    if (error) { console.error("Storage upload:", error); return null; }
+    const { data } = supabase.storage.from(BUCKET).getPublicUrl(`${slug}.png`);
     return data?.publicUrl ?? null;
-  } catch { return null; }
+  } catch (e) {
+    console.error("uploadImage:", e);
+    return null;
+  }
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST")
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
 
-  let body: { device_activation_id?: string; device_brand?: string; device_model?: string };
+  let body: {
+    device_activation_id?: string;
+    device_brand?: string;
+    device_model?: string;
+    device_name?: string;
+  };
   try { body = await req.json(); }
   catch { return new Response(JSON.stringify({ error: "Invalid JSON" }), { status: 400 }); }
 
-  const { device_activation_id, device_brand, device_model } = body;
-  if (!device_activation_id || !device_brand || !device_model)
-    return new Response(JSON.stringify({ error: "Campos obrigatórios ausentes" }), { status: 400 });
+  const { device_activation_id, device_brand, device_model, device_name } = body;
+  if (!device_activation_id || (!device_brand && !device_model && !device_name))
+    return new Response(JSON.stringify({ error: "device_activation_id e pelo menos brand/model/name são obrigatórios" }), { status: 400 });
 
   try {
     await ensureBucket();
-    const found = await searchDevice(device_brand, device_model);
-    if (!found)
-      return new Response(JSON.stringify({ ok: false, message: "Device não encontrado" }), { status: 200 });
+
+    // Usa device_name (nome comercial) se disponível, senão brand + model
+    const searchBrand = device_brand ?? "";
+    const searchModel = device_name ?? device_model ?? "";
+
+    const found = await searchDevice(searchBrand, searchModel);
+    if (!found) {
+      console.warn(`Device não encontrado: brand=${device_brand} model=${device_model} name=${device_name}`);
+      return new Response(JSON.stringify({ ok: false, message: "Device não encontrado na MobileAPI" }), { status: 200 });
+    }
 
     const deviceId = found.id ?? found.device_id;
     const detail   = await getDeviceDetail(deviceId);
 
     const rawImageUrl: string | null =
-      detail?.images?.[0]?.url ?? detail?.image_url ?? found?.image_url ?? found?.thumbnail ?? null;
+      detail?.images?.[0]?.url ??
+      detail?.image_url ??
+      found?.image_url ??
+      found?.thumbnail ??
+      null;
 
     const specs = {
       display:  detail?.display?.size     ?? detail?.specs?.display  ?? null,
@@ -88,19 +121,22 @@ Deno.serve(async (req: Request) => {
       os:       detail?.software?.os      ?? detail?.specs?.os       ?? null,
     };
 
-    const slug      = slugify(`${device_brand}-${device_model}`);
+    const slug      = slugify(`${device_brand ?? searchModel}-${device_model ?? searchModel}`);
     const publicUrl = rawImageUrl ? await uploadImage(rawImageUrl, slug) : null;
 
-    await supabase
+    const { error: updateErr } = await supabase
       .from("device_activations")
       .update({ phone_image_url: publicUrl, mobileapi_device_id: deviceId, phone_specs: specs })
       .eq("id", device_activation_id);
 
-    return new Response(JSON.stringify({ ok: true, phone_image_url: publicUrl, specs }), {
+    if (updateErr) throw updateErr;
+
+    return new Response(JSON.stringify({ ok: true, phone_image_url: publicUrl, specs, mobileapi_device_id: deviceId }), {
       headers: { "Content-Type": "application/json" },
     });
 
   } catch (err: any) {
+    console.error("sync-phone-image error:", err);
     return new Response(JSON.stringify({ ok: false, error: err.message }), { status: 500 });
   }
 });
