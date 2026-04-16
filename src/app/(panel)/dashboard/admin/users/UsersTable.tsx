@@ -17,6 +17,7 @@ type UserRow = {
   active_devices_count: number | null
   expires_at: string | null
   registered_at: string | null
+  last_sign_in_at: string | null
 }
 
 export default function UsersTable({ users }: { users: UserRow[] }) {
@@ -64,7 +65,7 @@ export default function UsersTable({ users }: { users: UserRow[] }) {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-offset)' }}>
-                {['Usuário', 'Email', 'Plano', 'Status', 'Devices', 'Expira em', 'Cadastro', 'Ações', ''].map(h => (
+                {['Usuário', 'Email', 'Plano', 'Status', 'Devices', 'Último acesso', 'Expira em', 'Cadastro', 'Ações', ''].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
                 ))}
               </tr>
@@ -72,7 +73,7 @@ export default function UsersTable({ users }: { users: UserRow[] }) {
             <tbody>
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={9} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+                  <td colSpan={10} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
                     {query ? `Nenhum resultado para "${query}"` : 'Nenhum usuário encontrado'}
                   </td>
                 </tr>
@@ -116,6 +117,13 @@ export default function UsersTable({ users }: { users: UserRow[] }) {
                     {u.license_id
                       ? <>{u.active_devices_count ?? 0}<span style={{ color: 'var(--color-text-muted)' }}> / {u.max_devices ?? '?'}</span></>
                       : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                  </td>
+
+                  <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                    {u.last_sign_in_at
+                      ? <span style={{ color: 'var(--color-text-muted)' }}>{new Date(u.last_sign_in_at).toLocaleDateString('pt-BR')}</span>
+                      : <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-error)', background: 'var(--color-error-bg)', padding: '0.15rem 0.5rem', borderRadius: '999px' }}>Nunca acessou</span>
+                    }
                   </td>
 
                   <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>

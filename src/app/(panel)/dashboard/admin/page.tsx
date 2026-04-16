@@ -9,11 +9,7 @@ type LicenseStats = Database['public']['Views']['admin_license_stats']['Row']
 type UserRow = Database['public']['Views']['admin_users_overview']['Row']
 
 function StatCard({ label, value, icon, accentColor, accentBg }: {
-  label: string
-  value: number | string
-  icon: string
-  accentColor: string
-  accentBg: string
+  label: string; value: number | string; icon: string; accentColor: string; accentBg: string
 }) {
   return (
     <div className="stat-card">
@@ -48,7 +44,6 @@ export default async function AdminPage() {
   const now = new Date()
   const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
-  // Licenças expirando em breve
   const { data: allLicenses } = await supabase
     .from('licenses')
     .select('expires_at, status')
@@ -60,7 +55,6 @@ export default async function AdminPage() {
     return exp >= now && exp <= in7days
   }).length
 
-  // Devices por status
   const { count: devicesSuspensos } = await supabase
     .from('device_activations')
     .select('id', { count: 'exact', head: true })
@@ -82,7 +76,7 @@ export default async function AdminPage() {
 
       {/* Alertas */}
       {expiringSoon > 0 && (
-        <div style={{ marginBottom: '1.25rem', padding: '0.875rem 1.25rem', background: 'var(--color-warning-bg)', border: '1px solid rgba(150,66,25,0.25)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+        <div style={{ marginBottom: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--color-warning-bg)', border: '1px solid rgba(150,66,25,0.25)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
             <span>⚠️</span>
             <span style={{ fontSize: '0.875rem', color: 'var(--color-warning)', fontWeight: 500 }}>
@@ -93,18 +87,42 @@ export default async function AdminPage() {
         </div>
       )}
 
+      {(devicesSuspensos ?? 0) > 0 && (
+        <div style={{ marginBottom: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--color-warning-bg)', border: '1px solid rgba(150,66,25,0.25)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <span>⏸️</span>
+            <span style={{ fontSize: '0.875rem', color: 'var(--color-warning)', fontWeight: 500 }}>
+              {devicesSuspensos} dispositivo{(devicesSuspensos ?? 0) > 1 ? 's' : ''} suspenso{(devicesSuspensos ?? 0) > 1 ? 's' : ''}
+            </span>
+          </div>
+          <Link href="/dashboard/admin/devices" className="btn btn-sm" style={{ background: 'var(--color-warning)', color: '#fff', fontSize: '0.75rem' }}>Ver dispositivos</Link>
+        </div>
+      )}
+
+      {(devicesRevogados ?? 0) > 0 && (
+        <div style={{ marginBottom: '0.75rem', padding: '0.875rem 1.25rem', background: 'var(--color-error-bg)', border: '1px solid rgba(161,44,123,0.2)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+            <span>🚫</span>
+            <span style={{ fontSize: '0.875rem', color: 'var(--color-error)', fontWeight: 500 }}>
+              {devicesRevogados} dispositivo{(devicesRevogados ?? 0) > 1 ? 's' : ''} revogado{(devicesRevogados ?? 0) > 1 ? 's' : ''}
+            </span>
+          </div>
+          <Link href="/dashboard/admin/devices" className="btn btn-sm" style={{ background: 'var(--color-error)', color: '#fff', fontSize: '0.75rem' }}>Ver dispositivos</Link>
+        </div>
+      )}
+
       {/* Stats — Licenças */}
-      <div style={{ marginBottom: '0.5rem' }}>
+      <div style={{ marginBottom: '0.5rem', marginTop: '1.25rem' }}>
         <p style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>Licenças</p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <StatCard label="Total Usuários"  value={s.total_users ?? 0}     icon="👥" accentColor="var(--color-text)"     accentBg="rgba(40,37,29,0.06)" />
-        <StatCard label="Plano BASIC"     value={s.total_basic ?? 0}     icon="🔵" accentColor="#1d4ed8"              accentBg="#eff6ff" />
-        <StatCard label="Plano PRO"       value={s.total_pro ?? 0}       icon="⭐" accentColor="var(--color-primary)"  accentBg="rgba(1,105,111,0.08)" />
-        <StatCard label="Ativas"          value={s.total_active ?? 0}    icon="✅" accentColor="var(--color-success)"  accentBg="var(--color-success-bg)" />
-        <StatCard label="Suspensas"       value={s.total_suspended ?? 0} icon="⏸️" accentColor="var(--color-warning)"  accentBg="var(--color-warning-bg)" />
-        <StatCard label="Expiradas"       value={s.total_expired ?? 0}   icon="❌" accentColor="var(--color-error)"    accentBg="var(--color-error-bg)" />
-        <StatCard label="Expirando (7d)"  value={expiringSoon}           icon="⏳" accentColor="#92400e"             accentBg="#fef3c7" />
+        <StatCard label="Total Usuários" value={s.total_users ?? 0}     icon="👥" accentColor="var(--color-text)"     accentBg="rgba(40,37,29,0.06)" />
+        <StatCard label="Plano BASIC"    value={s.total_basic ?? 0}     icon="🔵" accentColor="#1d4ed8"              accentBg="#eff6ff" />
+        <StatCard label="Plano PRO"      value={s.total_pro ?? 0}       icon="⭐" accentColor="var(--color-primary)"  accentBg="rgba(1,105,111,0.08)" />
+        <StatCard label="Ativas"         value={s.total_active ?? 0}    icon="✅" accentColor="var(--color-success)"  accentBg="var(--color-success-bg)" />
+        <StatCard label="Suspensas"      value={s.total_suspended ?? 0} icon="⏸️" accentColor="var(--color-warning)"  accentBg="var(--color-warning-bg)" />
+        <StatCard label="Expiradas"      value={s.total_expired ?? 0}   icon="❌" accentColor="var(--color-error)"    accentBg="var(--color-error-bg)" />
+        <StatCard label="Expirando (7d)" value={expiringSoon}           icon="⏳" accentColor="#92400e"             accentBg="#fef3c7" />
       </div>
 
       {/* Stats — Dispositivos */}
@@ -112,10 +130,10 @@ export default async function AdminPage() {
         <p style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>Dispositivos</p>
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <StatCard label="Total Devices"   value={s.total_devices ?? 0}   icon="📱" accentColor="#7c3aed"             accentBg="#f5f3ff" />
-        <StatCard label="Ativos"          value={devicesAtivos < 0 ? 0 : devicesAtivos} icon="✅" accentColor="var(--color-success)" accentBg="var(--color-success-bg)" />
-        <StatCard label="Suspensos"       value={devicesSuspensos ?? 0}  icon="⏸️" accentColor="var(--color-warning)"  accentBg="var(--color-warning-bg)" />
-        <StatCard label="Revogados"       value={devicesRevogados ?? 0}  icon="🚫" accentColor="var(--color-error)"    accentBg="var(--color-error-bg)" />
+        <StatCard label="Total Devices" value={s.total_devices ?? 0}              icon="📱" accentColor="#7c3aed"            accentBg="#f5f3ff" />
+        <StatCard label="Ativos"        value={devicesAtivos < 0 ? 0 : devicesAtivos} icon="✅" accentColor="var(--color-success)" accentBg="var(--color-success-bg)" />
+        <StatCard label="Suspensos"     value={devicesSuspensos ?? 0}             icon="⏸️" accentColor="var(--color-warning)"  accentBg="var(--color-warning-bg)" />
+        <StatCard label="Revogados"     value={devicesRevogados ?? 0}             icon="🚫" accentColor="var(--color-error)"    accentBg="var(--color-error-bg)" />
       </div>
 
       {/* Ações rápidas */}
@@ -146,18 +164,20 @@ export default async function AdminPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-offset)' }}>
-                {['Nome', 'Email', 'Plano', 'Status', 'Cadastro'].map(h => (
+                {['Nome', 'Email', 'Plano', 'Status', 'Último acesso', 'Cadastro'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '0.625rem 1rem', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {!recentUsers?.length && (
-                <tr><td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Nenhum usuário ainda</td></tr>
+                <tr><td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>Nenhum usuário ainda</td></tr>
               )}
               {recentUsers?.map((u: UserRow, i: number) => (
                 <tr key={u.id ?? i} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  <td style={{ padding: '0.75rem 1rem', fontWeight: 500 }}>{u.full_name ?? <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>Sem nome</span>}</td>
+                  <td style={{ padding: '0.75rem 1rem', fontWeight: 500 }}>
+                    {u.full_name ?? <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>Sem nome</span>}
+                  </td>
                   <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>{u.email}</td>
                   <td style={{ padding: '0.75rem 1rem' }}>
                     {u.plan ? <span className={`badge badge-${u.plan === 'PRO' ? 'pro' : 'basic'}`}>{u.plan}</span> : <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
@@ -166,6 +186,12 @@ export default async function AdminPage() {
                     {u.license_status ? (
                       <span style={{ fontWeight: 600, fontSize: '0.8rem', color: u.license_status === 'ACTIVE' ? 'var(--color-success)' : u.license_status === 'EXPIRED' ? 'var(--color-error)' : 'var(--color-warning)' }}>{u.license_status}</span>
                     ) : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                    {u.last_sign_in_at
+                      ? <span style={{ color: 'var(--color-text-muted)' }}>{new Date(u.last_sign_in_at).toLocaleDateString('pt-BR')}</span>
+                      : <span style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-error)', background: 'var(--color-error-bg)', padding: '0.15rem 0.5rem', borderRadius: '999px' }}>Nunca acessou</span>
+                    }
                   </td>
                   <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
                     {u.registered_at ? new Date(u.registered_at).toLocaleDateString('pt-BR') : '—'}

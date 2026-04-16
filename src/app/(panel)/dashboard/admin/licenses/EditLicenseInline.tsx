@@ -13,6 +13,13 @@ type Props = {
   currentExpiresAt: string | null
 }
 
+function addDays(dateStr: string | null, days: number): string {
+  const base = dateStr ? new Date(dateStr) : new Date()
+  if (base < new Date()) base.setTime(new Date().getTime()) // se já expirou, conta a partir de hoje
+  base.setDate(base.getDate() + days)
+  return base.toISOString().slice(0, 10)
+}
+
 export default function EditLicenseInline(props: Props) {
   const [open, setOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -81,6 +88,7 @@ export default function EditLicenseInline(props: Props) {
                   </select>
                 </div>
               </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
                   <label style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.3rem' }}>Máx. Devices</label>
@@ -89,6 +97,28 @@ export default function EditLicenseInline(props: Props) {
                 <div>
                   <label style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.3rem' }}>Expiração</label>
                   <input type="date" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} style={inputStyle} />
+                </div>
+              </div>
+
+              {/* Botões rápidos de extensão */}
+              <div>
+                <label style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.4rem' }}>Extensão rápida</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setExpiresAt(addDays(expiresAt || null, 30))}
+                  >+ 30 dias</button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setExpiresAt(addDays(expiresAt || null, 180))}
+                  >+ 6 meses</button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => setExpiresAt(addDays(expiresAt || null, 365))}
+                  >+ 1 ano</button>
                 </div>
               </div>
 
