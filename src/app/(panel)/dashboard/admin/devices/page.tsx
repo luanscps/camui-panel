@@ -25,7 +25,13 @@ type DeviceRow = {
   } | null
 }
 
-type Profile = { id: string; full_name: string | null; email?: string | null }
+type AdminUser = {
+  id: string | null
+  email: string | null
+  full_name: string | null
+  plan: string | null
+  license_id: string | null
+}
 
 type AccountRow = {
   userId: string
@@ -54,6 +60,7 @@ export default async function AdminDevicesPage() {
     .single()
   if (!profile?.is_admin) redirect('/dashboard')
 
+  // Busca devices
   const { data: devices, error } = await supabase
     .from('device_activations')
     .select(`
@@ -67,31 +74,30 @@ export default async function AdminDevicesPage() {
 
   if (error) console.error('[AdminDevices] query error:', error)
 
-  const userIds = [...new Set(
-    devices?.map(d => d.licenses?.user_id).filter(Boolean) ?? []
-  )] as string[]
+  // Busca usuários pela view admin_users_overview (tem id, email, full_name)
+  const { data: adminUsers } = await supabase
+    .from('admin_users_overview')
+    .select('id, email, full_name, plan, license_id') as { data: AdminUser[] | null }
 
-  const { data: profilesRaw } = userIds.length
-    ? await supabase
-        .from('profiles')
-        .select('id, full_name, email')
-        .in('id', userIds) as { data: Profile[] | null }
-    : { data: [] as Profile[] }
+  const userMap = new Map<string, AdminUser>()
+  for (const u of adminUsers ?? []) {
+    if (u.id) userMap.set(u.id, u)
+  }
 
-  // Agrupar devices por conta (user_id)
+  // Agrupa devices por conta
   const accountMap = new Map<string, AccountRow>()
 
   for (const dev of devices ?? []) {
     const uid = dev.licenses?.user_id
     if (!uid) continue
-    const prof = profilesRaw?.find(p => p.id === uid)
+    const u = userMap.get(uid)
 
     if (!accountMap.has(uid)) {
       accountMap.set(uid, {
         userId: uid,
-        fullName: prof?.full_name ?? 'Usuário',
-        email: prof?.email ?? '—',
-        plan: dev.licenses?.plan ?? '—',
+        fullName: u?.full_name ?? 'Sem nome',
+        email: u?.email ?? '—',
+        plan: dev.licenses?.plan ?? u?.plan ?? '—',
         accountNumber: dev.licenses?.account_number ?? null,
         deviceCount: 0,
         activeCount: 0,
@@ -117,6 +123,10 @@ export default async function AdminDevicesPage() {
 
   const totalAccounts  = accounts.length
   const totalDevices   = devices?.length ?? 0
+  const totalOnline    = devices?.filter(d => {
+    const t = d.last_seen_at ? new Date(d.last_seen_at) : null
+    return t && (Date.now() - t.getTime()) < 5 * 60 * 1000
+  }).length ?? 0
   const totalAtivos    = devices?.filter(d => d.status === 'ACTIVE').length ?? 0
   const totalSuspensos = devices?.filter(d => d.status === 'SUSPENDED').length ?? 0
   const totalRevogados = devices?.filter(d => d.status === 'REVOKED').length ?? 0
@@ -124,6 +134,7 @@ export default async function AdminDevicesPage() {
   const kpis = [
     { label: 'Contas',    value: totalAccounts,  color: 'var(--color-primary)' },
     { label: 'Devices',   value: totalDevices,   color: 'var(--color-text)' },
+    { label: 'Online',    value: totalOnline,    color: 'var(--color-success)' },
     { label: 'Ativos',    value: totalAtivos,    color: 'var(--color-success)' },
     { label: 'Suspensos', value: totalSuspensos, color: 'var(--color-warning)' },
     { label: 'Revogados', value: totalRevogados, color: 'var(--color-error)' },
@@ -131,7 +142,6 @@ export default async function AdminDevicesPage() {
 
   return (
     <main className="camui-content">
-      {/* Cabeçalho */}
       <div style={{ marginBottom: '1.75rem' }}>
         <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
           Dispositivos
@@ -142,7 +152,7 @@ export default async function AdminDevicesPage() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
         {kpis.map(k => (
           <div key={k.label} className="card" style={{ padding: '1rem 1.25rem' }}>
             <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.375rem' }}>
@@ -161,7 +171,7 @@ export default async function AdminDevicesPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-offset)' }}>
-                {['Nome', 'E-mail', 'Conta', 'Plano', 'Devices', 'Ativos', 'Suspensos', 'Revogados', 'Último acesso', 'Ações'].map(h => (
+                {['Nome', 'E-mail', 'Conta', 'Plano', 'Devices', 'Ativos', 'Susp.', 'Revog.', 'Último acesso', 'Ações'].map(h => (
                   <th key={h} style={{ textAlign: 'left', padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
                     {h}
                   </th>
@@ -172,7 +182,7 @@ export default async function AdminDevicesPage() {
               {!accounts.length && (
                 <tr>
                   <td colSpan={10} style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                    Nenhuma conta cadastrada ainda
+                    Nenhuma conta com dispositivo cadastrado
                   </td>
                 </tr>
               )}
@@ -181,14 +191,19 @@ export default async function AdminDevicesPage() {
                 const isOnline = lastSeen ? (Date.now() - lastSeen.getTime()) < 5 * 60 * 1000 : false
 
                 return (
-                  <tr key={acc.userId} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                  <tr
+                    key={acc.userId}
+                    style={{ borderBottom: '1px solid var(--color-border)', transition: 'background 150ms' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--color-surface-offset)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = '')}
+                  >
                     {/* Nome */}
-                    <td style={{ padding: '0.75rem 1rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, whiteSpace: 'nowrap' }}>
                       {acc.fullName}
                     </td>
 
                     {/* E-mail */}
-                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {acc.email}
                     </td>
 
@@ -199,10 +214,13 @@ export default async function AdminDevicesPage() {
 
                     {/* Plano */}
                     <td style={{ padding: '0.75rem 1rem' }}>
-                      <span className={`badge badge-${acc.plan === 'PRO' ? 'pro' : 'basic'}`}>{acc.plan}</span>
+                      {acc.plan !== '—'
+                        ? <span className={`badge badge-${acc.plan === 'PRO' ? 'pro' : 'basic'}`}>{acc.plan}</span>
+                        : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>—</span>
+                      }
                     </td>
 
-                    {/* Devices */}
+                    {/* Devices total */}
                     <td style={{ padding: '0.75rem 1rem', fontWeight: 600, textAlign: 'center' }}>
                       {acc.deviceCount}
                     </td>
@@ -213,12 +231,12 @@ export default async function AdminDevicesPage() {
                     </td>
 
                     {/* Suspensos */}
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--color-warning)', fontWeight: 600 }}>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: acc.suspendedCount > 0 ? 'var(--color-warning)' : 'var(--color-text-muted)', fontWeight: 600 }}>
                       {acc.suspendedCount}
                     </td>
 
                     {/* Revogados */}
-                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--color-error)', fontWeight: 600 }}>
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: acc.revokedCount > 0 ? 'var(--color-error)' : 'var(--color-text-muted)', fontWeight: 600 }}>
                       {acc.revokedCount}
                     </td>
 
@@ -226,7 +244,7 @@ export default async function AdminDevicesPage() {
                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
                       {lastSeen
                         ? isOnline
-                          ? <span style={{ color: 'var(--color-success)', fontWeight: 500 }}>Online agora</span>
+                          ? <span style={{ color: 'var(--color-success)', fontWeight: 500 }}>🟢 Online</span>
                           : lastSeen.toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
                         : '—'}
                     </td>

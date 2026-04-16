@@ -44,7 +44,7 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
 
   return (
     <>
-      {/* Botão para abrir */}
+      {/* Botão abrir */}
       <button
         onClick={() => setOpen(true)}
         style={{
@@ -74,14 +74,14 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
         />
       )}
 
-      {/* Drawer lateral */}
+      {/* Drawer */}
       <div
         style={{
           position: 'fixed',
           top: 0,
-          right: open ? 0 : '-520px',
+          right: open ? 0 : '-540px',
           width: '100%',
-          maxWidth: 520,
+          maxWidth: 540,
           height: '100%',
           background: 'var(--color-surface)',
           boxShadow: '-4px 0 32px rgba(0,0,0,0.25)',
@@ -92,7 +92,7 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
           overflowY: 'auto',
         }}
       >
-        {/* Header do drawer */}
+        {/* Header fixo */}
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -109,41 +109,42 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
               {account.fullName}
             </div>
             <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
-              #{account.accountNumber} · {account.email}
+              {account.email}
+              {account.accountNumber && (
+                <span style={{ marginLeft: '0.5rem', fontFamily: 'monospace', color: 'var(--color-primary)', fontWeight: 700 }}>
+                  #{account.accountNumber}
+                </span>
+              )}
             </div>
           </div>
           <button
             onClick={() => setOpen(false)}
             style={{
-              background: 'none',
-              border: 'none',
-              fontSize: '1.4rem',
-              cursor: 'pointer',
+              background: 'none', border: 'none',
+              fontSize: '1.4rem', cursor: 'pointer',
               color: 'var(--color-text-muted)',
-              lineHeight: 1,
-              padding: '0.25rem',
+              lineHeight: 1, padding: '0.25rem',
             }}
           >
             ✕
           </button>
         </div>
 
-        {/* Resumo rápido */}
+        {/* Mini KPIs */}
         <div style={{
-          display: 'flex',
-          gap: '0.75rem',
+          display: 'flex', gap: '0.75rem',
           padding: '1rem 1.5rem',
           borderBottom: '1px solid var(--color-border)',
           flexWrap: 'wrap',
         }}>
           {[
-            { label: 'Total',     value: account.deviceCount,   color: 'var(--color-text)' },
+            { label: 'Total',     value: account.deviceCount,    color: 'var(--color-text)' },
             { label: 'Ativos',    value: account.activeCount,    color: 'var(--color-success)' },
             { label: 'Suspensos', value: account.suspendedCount, color: 'var(--color-warning)' },
             { label: 'Revogados', value: account.revokedCount,   color: 'var(--color-error)' },
           ].map(s => (
             <div key={s.label} style={{
-              flex: 1, minWidth: 70,
+              flex: 1, minWidth: 64,
               background: 'var(--color-surface-offset)',
               borderRadius: 'var(--radius-sm)',
               padding: '0.6rem 0.75rem',
@@ -159,7 +160,7 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
           ))}
         </div>
 
-        {/* Lista de devices */}
+        {/* Lista devices */}
         <div style={{ padding: '1rem 1.5rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           {account.devices.length === 0 && (
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', textAlign: 'center', paddingTop: '2rem' }}>
@@ -168,13 +169,12 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
           )}
 
           {account.devices.map(dev => {
-            const lastSeen = dev.last_seen_at ? new Date(dev.last_seen_at) : null
-            const isOnline = lastSeen ? (Date.now() - lastSeen.getTime()) < 5 * 60 * 1000 : false
-            const statusColor = dev.status === 'ACTIVE'
-              ? 'var(--color-success)'
-              : dev.status === 'SUSPENDED'
-              ? 'var(--color-warning)'
-              : 'var(--color-error)'
+            const lastSeen  = dev.last_seen_at ? new Date(dev.last_seen_at) : null
+            const isOnline  = lastSeen ? (Date.now() - lastSeen.getTime()) < 5 * 60 * 1000 : false
+            const statusColor =
+              dev.status === 'ACTIVE'    ? 'var(--color-success)' :
+              dev.status === 'SUSPENDED' ? 'var(--color-warning)' :
+                                           'var(--color-error)'
 
             return (
               <div key={dev.id} style={{
@@ -183,7 +183,6 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
                 padding: '1rem',
                 border: '1px solid var(--color-border)',
               }}>
-                {/* Linha principal: foto + info */}
                 <div style={{ display: 'flex', gap: '0.875rem', alignItems: 'flex-start' }}>
                   {/* Foto */}
                   <div style={{
@@ -201,37 +200,52 @@ export default function DeviceDrawer({ account }: { account: AccountRow }) {
                   {/* Infos */}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, display: 'inline-block', background: isOnline ? 'var(--color-success)' : 'var(--color-border)' }} />
+                      {/* Indicador online */}
+                      <span style={{
+                        width: 8, height: 8, borderRadius: '50%', flexShrink: 0,
+                        display: 'inline-block',
+                        background: isOnline ? 'var(--color-success)' : 'var(--color-border)',
+                      }} />
                       <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text)' }}>
                         {dev.device_name ?? <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>Sem nome</span>}
                       </span>
-                      <span style={{ fontSize: '0.72rem', fontWeight: 600, color: statusColor }}>
+                      <span style={{ fontSize: '0.72rem', fontWeight: 700, color: statusColor }}>
                         {dev.status}
                       </span>
                     </div>
 
-                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                    <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
                       {[dev.device_brand, dev.device_model].filter(Boolean).join(' / ') || '—'}
                       {dev.android_version ? ` · Android ${dev.android_version}` : ''}
-                      {dev.app_version ? ` · App ${dev.app_version}` : ''}
+                      {dev.app_version     ? ` · App ${dev.app_version}`           : ''}
                     </div>
 
+                    {/* Android ID */}
                     {dev.android_id && (
                       <div style={{ marginTop: '0.3rem' }}>
                         <code style={{ background: 'var(--color-surface)', padding: '0.1rem 0.35rem', borderRadius: 'var(--radius-sm)', fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
-                          {dev.android_id.slice(0, 16)}…
+                          ID: {dev.android_id.slice(0, 16)}…
                         </code>
                       </div>
                     )}
 
+                    {/* Sub-licença */}
                     {dev.sub_license_key && (
                       <div style={{ marginTop: '0.25rem' }}>
                         <code style={{ background: 'var(--color-surface)', padding: '0.1rem 0.35rem', borderRadius: 'var(--radius-sm)', fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>
-                          {dev.sub_license_key.slice(0, 16)}…
+                          Key: {dev.sub_license_key.slice(0, 16)}…
                         </code>
                       </div>
                     )}
 
+                    {/* Specs (RAM / câmera) */}
+                    {(dev.phone_specs?.ram || dev.phone_specs?.camera) && (
+                      <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', opacity: 0.8 }}>
+                        {[dev.phone_specs.ram, dev.phone_specs.camera].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
+
+                    {/* Último acesso */}
                     <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.35rem' }}>
                       {lastSeen
                         ? isOnline
