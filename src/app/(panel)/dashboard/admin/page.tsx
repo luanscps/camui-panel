@@ -8,7 +8,13 @@ export const metadata = { title: 'Admin — CAMUI Panel' }
 type LicenseStats = Database['public']['Views']['admin_license_stats']['Row']
 type UserRow = Database['public']['Views']['admin_users_overview']['Row']
 
-function StatCard({ label, value, icon, accentColor, accentBg }: { label: string; value: number | string; icon: string; accentColor: string; accentBg: string }) {
+function StatCard({ label, value, icon, accentColor, accentBg }: {
+  label: string
+  value: number | string
+  icon: string
+  accentColor: string
+  accentBg: string
+}) {
   return (
     <div className="stat-card">
       <div style={{ width: 36, height: 36, borderRadius: 'var(--radius-md)', background: accentBg, color: accentColor, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.125rem', marginBottom: '0.25rem' }}>
@@ -42,7 +48,7 @@ export default async function AdminPage() {
   const now = new Date()
   const in7days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
 
-  // Licenças expirando em breve (precisamos buscar)
+  // Licenças expirando em breve
   const { data: allLicenses } = await supabase
     .from('licenses')
     .select('expires_at, status')
@@ -53,6 +59,19 @@ export default async function AdminPage() {
     const exp = new Date(l.expires_at)
     return exp >= now && exp <= in7days
   }).length
+
+  // Devices por status
+  const { count: devicesSuspensos } = await supabase
+    .from('device_activations')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'SUSPENDED')
+
+  const { count: devicesRevogados } = await supabase
+    .from('device_activations')
+    .select('id', { count: 'exact', head: true })
+    .eq('status', 'REVOKED')
+
+  const devicesAtivos = (s.total_devices ?? 0) - (devicesSuspensos ?? 0) - (devicesRevogados ?? 0)
 
   return (
     <main className="camui-content">
@@ -74,16 +93,29 @@ export default async function AdminPage() {
         </div>
       )}
 
-      {/* Stats */}
+      {/* Stats — Licenças */}
+      <div style={{ marginBottom: '0.5rem' }}>
+        <p style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>Licenças</p>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <StatCard label="Total Usuários"  value={s.total_users ?? 0}     icon="👥" accentColor="var(--color-text)"     accentBg="rgba(40,37,29,0.06)" />
+        <StatCard label="Plano BASIC"     value={s.total_basic ?? 0}     icon="🔵" accentColor="#1d4ed8"              accentBg="#eff6ff" />
+        <StatCard label="Plano PRO"       value={s.total_pro ?? 0}       icon="⭐" accentColor="var(--color-primary)"  accentBg="rgba(1,105,111,0.08)" />
+        <StatCard label="Ativas"          value={s.total_active ?? 0}    icon="✅" accentColor="var(--color-success)"  accentBg="var(--color-success-bg)" />
+        <StatCard label="Suspensas"       value={s.total_suspended ?? 0} icon="⏸️" accentColor="var(--color-warning)"  accentBg="var(--color-warning-bg)" />
+        <StatCard label="Expiradas"       value={s.total_expired ?? 0}   icon="❌" accentColor="var(--color-error)"    accentBg="var(--color-error-bg)" />
+        <StatCard label="Expirando (7d)"  value={expiringSoon}           icon="⏳" accentColor="#92400e"             accentBg="#fef3c7" />
+      </div>
+
+      {/* Stats — Dispositivos */}
+      <div style={{ marginBottom: '0.5rem' }}>
+        <p style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--color-text-muted)' }}>Dispositivos</p>
+      </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
-        <StatCard label="Total Usuários"   value={s.total_users ?? 0}     icon="👥" accentColor="var(--color-text)"    accentBg="rgba(40,37,29,0.06)" />
-        <StatCard label="Plano BASIC"      value={s.total_basic ?? 0}     icon="🔵" accentColor="#1d4ed8"             accentBg="#eff6ff" />
-        <StatCard label="Plano PRO"        value={s.total_pro ?? 0}       icon="⭐" accentColor="var(--color-primary)" accentBg="rgba(1,105,111,0.08)" />
-        <StatCard label="Devices Ativos"   value={s.total_devices ?? 0}   icon="📱" accentColor="#7c3aed"            accentBg="#f5f3ff" />
-        <StatCard label="Ativas"           value={s.total_active ?? 0}    icon="✅" accentColor="var(--color-success)" accentBg="var(--color-success-bg)" />
-        <StatCard label="Suspensas"        value={s.total_suspended ?? 0} icon="⏸️" accentColor="var(--color-warning)" accentBg="var(--color-warning-bg)" />
-        <StatCard label="Expiradas"        value={s.total_expired ?? 0}   icon="❌" accentColor="var(--color-error)"   accentBg="var(--color-error-bg)" />
-        <StatCard label="Expirando (7d)"   value={expiringSoon}           icon="⏳" accentColor="#92400e"            accentBg="#fef3c7" />
+        <StatCard label="Total Devices"   value={s.total_devices ?? 0}   icon="📱" accentColor="#7c3aed"             accentBg="#f5f3ff" />
+        <StatCard label="Ativos"          value={devicesAtivos < 0 ? 0 : devicesAtivos} icon="✅" accentColor="var(--color-success)" accentBg="var(--color-success-bg)" />
+        <StatCard label="Suspensos"       value={devicesSuspensos ?? 0}  icon="⏸️" accentColor="var(--color-warning)"  accentBg="var(--color-warning-bg)" />
+        <StatCard label="Revogados"       value={devicesRevogados ?? 0}  icon="🚫" accentColor="var(--color-error)"    accentBg="var(--color-error-bg)" />
       </div>
 
       {/* Ações rápidas */}
@@ -97,6 +129,7 @@ export default async function AdminPage() {
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           <Link href="/dashboard/admin/users"    className="btn btn-primary">👥 Gerenciar Usuários</Link>
           <Link href="/dashboard/admin/licenses" className="btn btn-secondary">🔑 Gerenciar Licenças</Link>
+          <Link href="/dashboard/admin/devices"  className="btn btn-secondary">📱 Gerenciar Dispositivos</Link>
         </div>
       </div>
 
