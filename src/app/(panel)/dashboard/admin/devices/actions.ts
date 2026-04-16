@@ -2,6 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
+import type { Database } from '@/types/database'
+
+type DeviceUpdate = Database['public']['Tables']['device_activations']['Update']
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -31,9 +34,10 @@ async function guardAdmin(): Promise<SupabaseServerClient> {
 export async function suspendDevice(deviceId: string) {
   assertValidUUID(deviceId)
   const supabase = await guardAdmin()
+  const payload: DeviceUpdate = { status: 'SUSPENDED' }
   const { error } = await supabase
     .from('device_activations')
-    .update({ status: 'SUSPENDED' })
+    .update(payload as never)
     .eq('id', deviceId)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/admin/devices')
@@ -42,9 +46,10 @@ export async function suspendDevice(deviceId: string) {
 export async function reactivateDevice(deviceId: string) {
   assertValidUUID(deviceId)
   const supabase = await guardAdmin()
+  const payload: DeviceUpdate = { status: 'ACTIVE' }
   const { error } = await supabase
     .from('device_activations')
-    .update({ status: 'ACTIVE' })
+    .update(payload as never)
     .eq('id', deviceId)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/admin/devices')
@@ -53,9 +58,10 @@ export async function reactivateDevice(deviceId: string) {
 export async function revokeDevice(deviceId: string) {
   assertValidUUID(deviceId)
   const supabase = await guardAdmin()
+  const payload: DeviceUpdate = { status: 'REVOKED' }
   const { error } = await supabase
     .from('device_activations')
-    .update({ status: 'REVOKED' })
+    .update(payload as never)
     .eq('id', deviceId)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/admin/devices')
