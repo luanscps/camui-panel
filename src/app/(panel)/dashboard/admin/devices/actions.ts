@@ -37,7 +37,7 @@ export async function suspendDevice(deviceId: string) {
   const payload: DeviceUpdate = { status: 'SUSPENDED' }
   const { error } = await supabase
     .from('device_activations')
-    .update(payload as never)
+    .update(payload)
     .eq('id', deviceId)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/admin/devices')
@@ -49,7 +49,7 @@ export async function reactivateDevice(deviceId: string) {
   const payload: DeviceUpdate = { status: 'ACTIVE' }
   const { error } = await supabase
     .from('device_activations')
-    .update(payload as never)
+    .update(payload)
     .eq('id', deviceId)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/admin/devices')
@@ -61,7 +61,7 @@ export async function revokeDevice(deviceId: string) {
   const payload: DeviceUpdate = { status: 'REVOKED' }
   const { error } = await supabase
     .from('device_activations')
-    .update(payload as never)
+    .update(payload)
     .eq('id', deviceId)
   if (error) throw new Error(error.message)
   revalidatePath('/dashboard/admin/devices')

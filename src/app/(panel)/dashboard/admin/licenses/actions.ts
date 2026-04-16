@@ -11,7 +11,7 @@ export async function revokeLicenseAction(licenseId: string) {
   const payload: LicenseUpdate = { status: 'REVOKED' }
   await supabase
     .from('licenses')
-    .update(payload as never)
+    .update(payload)
     .eq('id', licenseId)
   revalidatePath('/dashboard/admin/licenses')
 }

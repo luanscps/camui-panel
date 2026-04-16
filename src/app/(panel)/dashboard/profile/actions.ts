@@ -14,7 +14,7 @@ export async function updateNameAction(fullName: string) {
   const payload: ProfileUpdate = { full_name: fullName }
   const { error } = await supabase
     .from('profiles')
-    .update(payload as never)
+    .update(payload)
     .eq('id', user.id)
 
   if (error) throw new Error(`Falha ao atualizar nome: ${error.message}`)

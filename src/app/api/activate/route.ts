@@ -127,13 +127,13 @@ export async function POST(req: NextRequest) {
   const { data: upserted, error: upsertErr } = existingDevice
     ? await supabaseAdmin
         .from('device_activations')
-        .update(updateData as never)
+        .update(updateData)
         .eq('id', existingDevice.id)
         .select('id, sub_license_key, status')
         .single()
     : await supabaseAdmin
         .from('device_activations')
-        .insert(insertData as never)
+        .insert(insertData)
         .select('id, sub_license_key, status')
         .single()
 

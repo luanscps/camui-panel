@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
   const payload: DeviceUpdate = { last_seen_at: new Date().toISOString() }
   supabaseAdmin
     .from('device_activations')
-    .update(payload as never)
+    .update(payload)
     .eq('id', device.id)
     .then(() => {})
 

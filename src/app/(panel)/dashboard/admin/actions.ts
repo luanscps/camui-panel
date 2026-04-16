@@ -38,7 +38,7 @@ export async function createLicenseAction(data: {
     expires_at:     data.expiresAt || null,
     account_number: crypto.randomUUID(),
   }
-  const { error } = await supabase.from('licenses').insert(payload as never)
+  const { error } = await supabase.from('licenses').insert(payload)
   if (error) throw new Error(`Erro ao criar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')
   revalidatePath('/dashboard/admin/licenses')
@@ -62,7 +62,7 @@ export async function updateLicenseAction(data: {
   }
   const { error } = await supabase
     .from('licenses')
-    .update(payload as never)
+    .update(payload)
     .eq('id', data.licenseId)
   if (error) throw new Error(`Erro ao atualizar licença: ${error.message}`)
   revalidatePath('/dashboard/admin/users')

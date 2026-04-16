@@ -18,12 +18,11 @@ async function getOwnedActivation(
     .eq('id', activationId)
     .single()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const row = data as any
+  const row = data as { id: string; status: string; license_id: string; licenses: { user_id: string } | null } | null
   if (!row) throw new Error('Permissão negada')
-  const licenseUserId = (row.licenses as { user_id: string } | null)?.user_id
+  const licenseUserId = row.licenses?.user_id
   if (licenseUserId !== userId) throw new Error('Permissão negada')
-  return row as { id: string; status: string; license_id: string }
+  return row
 }
 
 export async function revokeDeviceAction(activationId: string) {
@@ -53,7 +52,7 @@ export async function suspendDeviceAction(activationId: string) {
   const payload: DeviceUpdate = { status: 'SUSPENDED' }
   const { error } = await supabase
     .from('device_activations')
-    .update(payload as never)
+    .update(payload)
     .eq('id', activationId)
 
   if (error) throw new Error(`Falha ao suspender: ${error.message}`)
@@ -71,7 +70,7 @@ export async function reactivateDeviceAction(activationId: string) {
   const payload: DeviceUpdate = { status: 'ACTIVE' }
   const { error } = await supabase
     .from('device_activations')
-    .update(payload as never)
+    .update(payload)
     .eq('id', activationId)
 
   if (error) throw new Error(`Falha ao reativar: ${error.message}`)
