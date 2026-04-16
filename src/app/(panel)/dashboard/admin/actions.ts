@@ -5,8 +5,9 @@ import { revalidatePath } from 'next/cache'
 import type { Database } from '@/types/database'
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row']
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
-async function assertAdmin() {
+async function assertAdmin(): Promise<SupabaseServerClient> {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) throw new Error('N\u00e3o autenticado')
