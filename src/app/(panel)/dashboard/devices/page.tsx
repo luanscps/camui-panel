@@ -4,6 +4,8 @@ import Image from 'next/image'
 
 export const metadata = { title: 'Dispositivos — CAMUI Panel' }
 
+type BatterySpec = { type?: string; charging?: string } | string | null
+
 type DeviceRow = {
   id: string
   device_name: string | null
@@ -17,20 +19,21 @@ type DeviceRow = {
   phone_specs: {
     display?: string | null
     camera?: string | null
-    battery?: string | null
+    battery?: BatterySpec
     ram?: string | null
     chipset?: string | null
+    storage?: string | null
   } | null
 }
 
-const chipStyle: React.CSSProperties = {
-  fontSize: '0.7rem',
-  padding: '0.2rem 0.5rem',
-  borderRadius: 999,
-  background: 'var(--color-surface-offset)',
-  border: '1px solid var(--color-border)',
-  color: 'var(--color-text-muted)',
-  whiteSpace: 'nowrap',
+function batteryLabel(battery: BatterySpec): string | null {
+  if (!battery) return null
+  if (typeof battery === 'string') return battery
+  if (typeof battery === 'object') {
+    const parts = [battery.type, battery.charging].filter(Boolean)
+    return parts.length ? parts.join(' · ') : null
+  }
+  return null
 }
 
 export default async function DevicesPage() {
@@ -52,6 +55,16 @@ export default async function DevicesPage() {
 
   const activeCount = devices?.filter(d => d.status === 'ACTIVE').length ?? 0
   const maxDevices  = licData?.max_devices ?? 1
+
+  const chipStyle = {
+    fontSize: '0.7rem',
+    padding: '0.2rem 0.5rem',
+    borderRadius: 999,
+    background: 'var(--color-surface-offset)',
+    border: '1px solid var(--color-border)',
+    color: 'var(--color-text-muted)',
+    whiteSpace: 'nowrap' as const,
+  }
 
   return (
     <main className="camui-content">
@@ -78,6 +91,7 @@ export default async function DevicesPage() {
             const isOnline    = minutesAgo !== null && minutesAgo < 5
             const statusColor = dev.status === 'ACTIVE' ? 'var(--color-success)' : dev.status === 'SUSPENDED' ? 'var(--color-warning)' : 'var(--color-error)'
             const displayName = dev.device_name ?? [dev.device_brand, dev.device_model].filter(Boolean).join(' ') ?? 'Dispositivo'
+            const battery     = batteryLabel(dev.phone_specs?.battery ?? null)
 
             return (
               <div key={dev.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -114,8 +128,9 @@ export default async function DevicesPage() {
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
                       {dev.phone_specs.ram     && <span style={chipStyle}>💾 {dev.phone_specs.ram}</span>}
                       {dev.phone_specs.camera  && <span style={chipStyle}>📷 {dev.phone_specs.camera}</span>}
-                      {dev.phone_specs.battery && <span style={chipStyle}>🔋 {dev.phone_specs.battery}</span>}
+                      {battery                 && <span style={chipStyle}>🔋 {battery}</span>}
                       {dev.phone_specs.display && <span style={chipStyle}>📐 {dev.phone_specs.display}</span>}
+                      {dev.phone_specs.chipset && <span style={chipStyle}>⚡ {dev.phone_specs.chipset}</span>}
                     </div>
                   )}
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
