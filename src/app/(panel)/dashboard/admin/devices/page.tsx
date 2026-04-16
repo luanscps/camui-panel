@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import Image from 'next/image'
-import DeviceActionsClient from './DeviceActionsClient'
+import DeviceDrawer from './DeviceDrawer'
 
 export const metadata = { title: 'Dispositivos — CAMUI Panel' }
 
@@ -10,18 +9,15 @@ type DeviceRow = {
   device_name: string | null
   device_brand: string | null
   device_model: string | null
-  device_hardware: string | null
   android_version: string | null
   android_id: string | null
   app_version: string | null
-  sdk_int: number | null
   status: string
   sub_license_key: string | null
   last_seen_at: string | null
-  activated_at: string | null
-  license_id: string
   phone_image_url: string | null
   phone_specs: Record<string, string | null> | null
+  license_id: string
   licenses: {
     plan: string
     user_id: string
@@ -29,12 +25,25 @@ type DeviceRow = {
   } | null
 }
 
-type Profile = { id: string; full_name: string | null }
+type Profile = { id: string; full_name: string | null; email?: string | null }
+
+type AccountRow = {
+  userId: string
+  fullName: string
+  email: string
+  plan: string
+  accountNumber: string | null
+  deviceCount: number
+  activeCount: number
+  suspendedCount: number
+  revokedCount: number
+  lastSeen: string | null
+  devices: DeviceRow[]
+}
 
 export default async function AdminDevicesPage() {
   const supabase = (await createClient()) as any
 
-  // Verifica se é admin pelo campo correto is_admin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
@@ -48,9 +57,9 @@ export default async function AdminDevicesPage() {
   const { data: devices, error } = await supabase
     .from('device_activations')
     .select(`
-      id, device_name, device_brand, device_model, device_hardware,
-      android_version, android_id, app_version, sdk_int,
-      status, sub_license_key, last_seen_at, activated_at, license_id,
+      id, device_name, device_brand, device_model,
+      android_version, android_id, app_version,
+      status, sub_license_key, last_seen_at, license_id,
       phone_image_url, phone_specs,
       licenses ( plan, user_id, account_number )
     `)
@@ -60,164 +69,157 @@ export default async function AdminDevicesPage() {
 
   const userIds = [...new Set(
     devices?.map(d => d.licenses?.user_id).filter(Boolean) ?? []
-  )]
+  )] as string[]
 
-  const { data: profiles } = userIds.length
+  const { data: profilesRaw } = userIds.length
     ? await supabase
         .from('profiles')
-        .select('id, full_name')
+        .select('id, full_name, email')
         .in('id', userIds) as { data: Profile[] | null }
     : { data: [] as Profile[] }
 
-  const total     = devices?.length ?? 0
-  const online    = devices?.filter(d => {
-    const t = d.last_seen_at ? new Date(d.last_seen_at) : null
-    return t && (Date.now() - t.getTime()) < 5 * 60 * 1000
-  }).length ?? 0
-  const ativos    = devices?.filter(d => d.status === 'ACTIVE').length    ?? 0
-  const suspensos = devices?.filter(d => d.status === 'SUSPENDED').length ?? 0
-  const revogados = devices?.filter(d => d.status === 'REVOKED').length   ?? 0
+  // Agrupar devices por conta (user_id)
+  const accountMap = new Map<string, AccountRow>()
+
+  for (const dev of devices ?? []) {
+    const uid = dev.licenses?.user_id
+    if (!uid) continue
+    const prof = profilesRaw?.find(p => p.id === uid)
+
+    if (!accountMap.has(uid)) {
+      accountMap.set(uid, {
+        userId: uid,
+        fullName: prof?.full_name ?? 'Usuário',
+        email: prof?.email ?? '—',
+        plan: dev.licenses?.plan ?? '—',
+        accountNumber: dev.licenses?.account_number ?? null,
+        deviceCount: 0,
+        activeCount: 0,
+        suspendedCount: 0,
+        revokedCount: 0,
+        lastSeen: null,
+        devices: [],
+      })
+    }
+
+    const acc = accountMap.get(uid)!
+    acc.deviceCount++
+    if (dev.status === 'ACTIVE')    acc.activeCount++
+    if (dev.status === 'SUSPENDED') acc.suspendedCount++
+    if (dev.status === 'REVOKED')   acc.revokedCount++
+    if (dev.last_seen_at && (!acc.lastSeen || dev.last_seen_at > acc.lastSeen)) {
+      acc.lastSeen = dev.last_seen_at
+    }
+    acc.devices.push(dev)
+  }
+
+  const accounts = [...accountMap.values()]
+
+  const totalAccounts  = accounts.length
+  const totalDevices   = devices?.length ?? 0
+  const totalAtivos    = devices?.filter(d => d.status === 'ACTIVE').length ?? 0
+  const totalSuspensos = devices?.filter(d => d.status === 'SUSPENDED').length ?? 0
+  const totalRevogados = devices?.filter(d => d.status === 'REVOKED').length ?? 0
 
   const kpis = [
-    { label: 'Total',     value: total,     color: 'var(--color-primary)' },
-    { label: 'Online',    value: online,    color: 'var(--color-success)' },
-    { label: 'Ativos',    value: ativos,    color: 'var(--color-success)' },
-    { label: 'Suspensos', value: suspensos, color: 'var(--color-warning)' },
-    { label: 'Revogados', value: revogados, color: 'var(--color-error)'   },
+    { label: 'Contas',    value: totalAccounts,  color: 'var(--color-primary)' },
+    { label: 'Devices',   value: totalDevices,   color: 'var(--color-text)' },
+    { label: 'Ativos',    value: totalAtivos,    color: 'var(--color-success)' },
+    { label: 'Suspensos', value: totalSuspensos, color: 'var(--color-warning)' },
+    { label: 'Revogados', value: totalRevogados, color: 'var(--color-error)' },
   ]
 
   return (
     <main className="camui-content">
-      <style>{`
-        .device-row { transition: background 0.15s; }
-        .device-row:hover { background: var(--color-surface-offset); }
-      `}</style>
-
+      {/* Cabeçalho */}
       <div style={{ marginBottom: '1.75rem' }}>
-        <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>Dispositivos</h1>
-        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>Gerencie as sub-licenças de cada dispositivo cadastrado no sistema</p>
+        <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
+          Dispositivos
+        </h1>
+        <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
+          Contas cadastradas e seus dispositivos vinculados
+        </p>
       </div>
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '1rem', marginBottom: '1.75rem' }}>
         {kpis.map(k => (
           <div key={k.label} className="card" style={{ padding: '1rem 1.25rem' }}>
-            <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.375rem' }}>{k.label}</div>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: k.color, lineHeight: 1 }}>{k.value}</div>
+            <div style={{ fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.375rem' }}>
+              {k.label}
+            </div>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: k.color, lineHeight: 1 }}>
+              {k.value}
+            </div>
           </div>
         ))}
       </div>
 
-      {/* Tabela */}
+      {/* Tabela de contas */}
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
             <thead>
               <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-offset)' }}>
-                {[
-                  '', 'Dispositivo', 'Marca / Modelo', 'Android', 'Android ID',
-                  'Usuário', 'Conta', 'Plano', 'Sub-licença', 'App Ver.', 'Status', 'Último acesso', 'Ações',
-                ].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>{h}</th>
+                {['Nome', 'E-mail', 'Conta', 'Plano', 'Devices', 'Ativos', 'Suspensos', 'Revogados', 'Último acesso', 'Ações'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '0.75rem 1rem', fontWeight: 600, color: 'var(--color-text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap' }}>
+                    {h}
+                  </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {!devices?.length && (
+              {!accounts.length && (
                 <tr>
-                  <td colSpan={13} style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                    Nenhum dispositivo cadastrado ainda
+                  <td colSpan={10} style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+                    Nenhuma conta cadastrada ainda
                   </td>
                 </tr>
               )}
-              {devices?.map(dev => {
-                const profile      = profiles?.find((p: Profile) => p.id === dev.licenses?.user_id)
-                const statusColor  = dev.status === 'ACTIVE' ? 'var(--color-success)' : dev.status === 'SUSPENDED' ? 'var(--color-warning)' : 'var(--color-error)'
-                const lastSeen     = dev.last_seen_at ? new Date(dev.last_seen_at) : null
-                const minutesAgo   = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / 60000) : null
-                const isOnline     = minutesAgo !== null && minutesAgo < 5
-                const displayName  = dev.device_name ?? 'Sem nome'
+              {accounts.map(acc => {
+                const lastSeen = acc.lastSeen ? new Date(acc.lastSeen) : null
+                const isOnline = lastSeen ? (Date.now() - lastSeen.getTime()) < 5 * 60 * 1000 : false
 
                 return (
-                  <tr key={dev.id} className="device-row" style={{ borderBottom: '1px solid var(--color-border)' }}>
-
-                    {/* Foto */}
-                    <td style={{ padding: '0.5rem 0.75rem', width: 52 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 8, overflow: 'hidden', background: 'var(--color-surface-offset)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        {dev.phone_image_url ? (
-                          <Image src={dev.phone_image_url} alt={displayName} width={44} height={44} style={{ objectFit: 'contain' }} />
-                        ) : (
-                          <span style={{ fontSize: '1.4rem' }}>📱</span>
-                        )}
-                      </div>
-                    </td>
-
-                    {/* Dispositivo */}
+                  <tr key={acc.userId} style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    {/* Nome */}
                     <td style={{ padding: '0.75rem 1rem', fontWeight: 500, whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, display: 'inline-block', background: isOnline ? 'var(--color-success)' : 'var(--color-border)' }} />
-                        {dev.device_name ?? <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>Sem nome</span>}
-                      </div>
-                      {dev.phone_specs?.ram && (
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
-                          {[dev.phone_specs.ram, dev.phone_specs.camera].filter(Boolean).join(' · ')}
-                        </div>
-                      )}
+                      {acc.fullName}
                     </td>
 
-                    {/* Marca / Modelo */}
+                    {/* E-mail */}
                     <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                      {[dev.device_brand, dev.device_model].filter(Boolean).join(' / ') || '—'}
-                      {dev.device_hardware && (
-                        <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>{dev.device_hardware}</div>
-                      )}
-                    </td>
-
-                    {/* Android */}
-                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                      {dev.android_version ? `Android ${dev.android_version}` : '—'}
-                      {dev.sdk_int ? <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem', opacity: 0.6 }}>(SDK {dev.sdk_int})</span> : null}
-                    </td>
-
-                    {/* Android ID */}
-                    <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
-                      <code style={{ background: 'var(--color-surface-offset)', padding: '0.1rem 0.4rem', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem' }}>
-                        {dev.android_id ? dev.android_id.slice(0, 12) + '…' : '—'}
-                      </code>
-                    </td>
-
-                    {/* Usuário */}
-                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.8125rem' }}>
-                      {profile?.full_name ?? <span style={{ color: 'var(--color-text-muted)' }}>—</span>}
+                      {acc.email}
                     </td>
 
                     {/* Conta */}
                     <td style={{ padding: '0.75rem 1rem', fontFamily: 'monospace', fontWeight: 700, color: 'var(--color-primary)', whiteSpace: 'nowrap' }}>
-                      #{dev.licenses?.account_number ?? '——'}
+                      #{acc.accountNumber ?? '——'}
                     </td>
 
                     {/* Plano */}
                     <td style={{ padding: '0.75rem 1rem' }}>
-                      {dev.licenses?.plan
-                        ? <span className={`badge badge-${dev.licenses.plan === 'PRO' ? 'pro' : 'basic'}`}>{dev.licenses.plan}</span>
-                        : <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>—</span>}
+                      <span className={`badge badge-${acc.plan === 'PRO' ? 'pro' : 'basic'}`}>{acc.plan}</span>
                     </td>
 
-                    {/* Sub-licença */}
-                    <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
-                      <code style={{ background: 'var(--color-surface-offset)', padding: '0.1rem 0.4rem', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem' }}>
-                        {dev.sub_license_key ? dev.sub_license_key.slice(0, 14) + '…' : '—'}
-                      </code>
+                    {/* Devices */}
+                    <td style={{ padding: '0.75rem 1rem', fontWeight: 600, textAlign: 'center' }}>
+                      {acc.deviceCount}
                     </td>
 
-                    {/* App Version */}
-                    <td style={{ padding: '0.75rem 1rem', fontSize: '0.78rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                      {dev.app_version ?? '—'}
+                    {/* Ativos */}
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--color-success)', fontWeight: 600 }}>
+                      {acc.activeCount}
                     </td>
 
-                    {/* Status */}
-                    <td style={{ padding: '0.75rem 1rem' }}>
-                      <span style={{ fontWeight: 600, fontSize: '0.8rem', color: statusColor }}>{dev.status}</span>
+                    {/* Suspensos */}
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--color-warning)', fontWeight: 600 }}>
+                      {acc.suspendedCount}
+                    </td>
+
+                    {/* Revogados */}
+                    <td style={{ padding: '0.75rem 1rem', textAlign: 'center', color: 'var(--color-error)', fontWeight: 600 }}>
+                      {acc.revokedCount}
                     </td>
 
                     {/* Último acesso */}
@@ -231,11 +233,7 @@ export default async function AdminDevicesPage() {
 
                     {/* Ações */}
                     <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
-                      <DeviceActionsClient
-                        deviceId={dev.id}
-                        currentStatus={dev.status}
-                        deviceName={dev.device_name ?? 'Dispositivo'}
-                      />
+                      <DeviceDrawer account={acc} />
                     </td>
                   </tr>
                 )
