@@ -16,6 +16,22 @@ const supabaseAdmin = createClient<Database>(
   { auth: { persistSession: false } }
 )
 
+type CameraInfo = {
+  id:                string
+  facing:            string
+  label?:            string
+  focal_lengths_mm?: number[]
+  max_resolution?:   string
+  max_fps?:          number
+  ois_supported?:    boolean
+  eis_supported?:    boolean
+  iso_range?:        number[]
+  has_raw?:          boolean
+  has_hdr?:          boolean
+  zoom_ratio_max?:   number
+  lens_count?:       number
+}
+
 type ActivateBody = {
   device_name?:     string
   device_brand?:    string
@@ -25,6 +41,7 @@ type ActivateBody = {
   sdk_int?:         number
   android_id:       string
   app_version?:     string
+  cameras?:         CameraInfo[]
 }
 
 function uuidv4(): string {
@@ -74,7 +91,7 @@ export async function POST(req: NextRequest) {
 
   const { data: existingDevice } = await supabaseAdmin
     .from('device_activations')
-    .select('id, status, sub_license_key')
+    .select('id, status, sub_license_key, app_version')
     .eq('license_id', license.id)
     .eq('android_id', android_id.trim())
     .maybeSingle()
@@ -101,17 +118,25 @@ export async function POST(req: NextRequest) {
   const fingerprint = [body.device_brand ?? '', body.device_model ?? '', body.device_hardware ?? '', android_id].join('|')
   const now = new Date().toISOString()
 
+  // Detecta mudança de versão para salvar last_app_version
+  const appVersionChanged =
+    existingDevice &&
+    body.app_version &&
+    existingDevice.app_version !== body.app_version
+
   const updateData: DeviceUpdate = {
-    device_name:     body.device_name     ?? null,
-    device_brand:    body.device_brand    ?? null,
-    device_model:    body.device_model    ?? null,
-    device_hardware: body.device_hardware ?? null,
-    android_version: body.android_version ?? null,
-    sdk_int:         body.sdk_int         ?? null,
-    app_version:     body.app_version     ?? null,
+    device_name:      body.device_name     ?? null,
+    device_brand:     body.device_brand    ?? null,
+    device_model:     body.device_model    ?? null,
+    device_hardware:  body.device_hardware ?? null,
+    android_version:  body.android_version ?? null,
+    sdk_int:          body.sdk_int         ?? null,
+    app_version:      body.app_version     ?? null,
+    cameras:          body.cameras         ?? [],
     fingerprint,
-    last_seen:       now,
-    last_seen_at:    now,
+    last_seen:        now,
+    last_seen_at:     now,
+    ...(appVersionChanged ? { last_app_version: existingDevice.app_version } : {}),
   }
 
   const insertData: DeviceInsert = {
