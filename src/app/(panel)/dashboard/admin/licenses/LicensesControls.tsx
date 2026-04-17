@@ -1,94 +1,110 @@
-import EditLicenseInline from './EditLicenseInline'
+'use client'
 
-type LicenseRow = {
-  id: string
-  plan: string
-  status: string
-  expires_at: string | null
-  user_id: string
-  max_devices: number | null
-  created_at: string | null
-  userName: string
-  isExpiring: boolean
-  isExpiredButActive: boolean
+import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useCallback, useTransition } from 'react'
+
+const inputStyle = {
+  padding: '0.5rem 0.75rem',
+  border: '1px solid var(--color-border)',
+  borderRadius: 'var(--radius-md)',
+  background: 'var(--color-surface)',
+  color: 'var(--color-text)',
+  fontSize: '0.875rem',
 }
 
-export default function LicensesTable({ licenses }: { licenses: LicenseRow[] }) {
+export default function LicensesControls({
+  total, page, pageSize, q, status, plan,
+}: {
+  total: number
+  page: number
+  pageSize: number
+  q: string
+  status: string
+  plan: string
+}) {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
+
+  const push = useCallback(
+    (updates: Record<string, string>) => {
+      const params = new URLSearchParams(searchParams.toString())
+      Object.entries(updates).forEach(([k, v]) => {
+        if (v) params.set(k, v)
+        else params.delete(k)
+      })
+      if (!('page' in updates)) params.set('page', '1')
+      startTransition(() => router.push(`${pathname}?${params.toString()}`))
+    },
+    [pathname, router, searchParams]
+  )
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
+  const from = total === 0 ? 0 : (page - 1) * pageSize + 1
+  const to = Math.min(page * pageSize, total)
+
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.875rem' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid var(--color-border)', background: 'var(--color-surface-offset)' }}>
-              {['Usuário', 'Plano', 'Status', 'Devices', 'Expira em', 'Criado em', 'Ações'].map(h => (
-                <th key={h} style={{
-                  textAlign: 'left', padding: '0.75rem 1rem', fontWeight: 600,
-                  color: 'var(--color-text-muted)', fontSize: '0.7rem',
-                  textTransform: 'uppercase', letterSpacing: '0.05em', whiteSpace: 'nowrap',
-                }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {licenses.length === 0 && (
-              <tr>
-                <td colSpan={7} style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                  Nenhuma licença encontrada
-                </td>
-              </tr>
-            )}
-            {licenses.map(lic => (
-              <tr key={lic.id} style={{
-                borderBottom: '1px solid var(--color-border)',
-                background: lic.isExpiring
-                  ? 'rgba(150,66,25,0.03)'
-                  : lic.isExpiredButActive
-                  ? 'rgba(161,44,123,0.03)'
-                  : '',
-              }}>
-                <td style={{ padding: '0.75rem 1rem', fontWeight: 500 }}>
-                  {lic.userName || <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>Sem nome</span>}
-                </td>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  <span className={`badge badge-${lic.plan === 'PRO' ? 'pro' : 'basic'}`}>{lic.plan}</span>
-                </td>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  <span style={{
-                    fontWeight: 600, fontSize: '0.8rem',
-                    color: lic.status === 'ACTIVE' ? 'var(--color-success)'
-                      : lic.status === 'EXPIRED' ? 'var(--color-error)'
-                      : 'var(--color-warning)',
-                  }}>{lic.status}</span>
-                  {lic.isExpiring && (
-                    <span style={{ marginLeft: '0.375rem', fontSize: '0.7rem', color: 'var(--color-warning)' }}>⚠️ expira em breve</span>
-                  )}
-                </td>
-                <td style={{ padding: '0.75rem 1rem', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                  {lic.max_devices ?? 1}
-                </td>
-                <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', whiteSpace: 'nowrap', color: lic.isExpiredButActive ? 'var(--color-error)' : 'var(--color-text-muted)' }}>
-                  {lic.expires_at ? new Date(lic.expires_at).toLocaleDateString('pt-BR') : '—'}
-                  {lic.isExpiredButActive && ' 🔴'}
-                </td>
-                <td style={{ padding: '0.75rem 1rem', fontSize: '0.8rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                  {lic.created_at ? new Date(lic.created_at).toLocaleDateString('pt-BR') : '—'}
-                </td>
-                <td style={{ padding: '0.75rem 1rem' }}>
-                  <EditLicenseInline
-                    licenseId={lic.id}
-                    userId={lic.user_id}
-                    userName={lic.userName || lic.user_id.slice(0, 8) + '…'}
-                    currentPlan={lic.plan}
-                    currentStatus={lic.status}
-                    currentMaxDevices={lic.max_devices ?? 1}
-                    currentExpiresAt={lic.expires_at}
-                  />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1rem' }}>
+
+      {/* Filtros */}
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ position: 'relative', flex: 1, minWidth: 220 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)', pointerEvents: 'none' }}>
+            <circle cx="11" cy="11" r="8" /><path d="m21 21-4.35-4.35" />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nome ou email..."
+            defaultValue={q}
+            onChange={e => push({ q: e.target.value })}
+            style={{ ...inputStyle, width: '100%', paddingLeft: '2.25rem' }}
+          />
+        </div>
+
+        <select value={status} onChange={e => push({ status: e.target.value })} style={{ ...inputStyle, minWidth: 150 }}>
+          <option value="">Todos os status</option>
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="SUSPENDED">SUSPENDED</option>
+          <option value="EXPIRED">EXPIRED</option>
+        </select>
+
+        <select value={plan} onChange={e => push({ plan: e.target.value })} style={{ ...inputStyle, minWidth: 130 }}>
+          <option value="">Todos os planos</option>
+          <option value="BASIC">BASIC</option>
+          <option value="PRO">PRO</option>
+        </select>
+
+        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>
+          {isPending ? '⏳ Buscando...' : `${from}–${to} de ${total}`}
+        </span>
       </div>
+
+      {/* Paginação */}
+      {totalPages > 1 && (
+        <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <button className="btn btn-ghost btn-sm" disabled={page <= 1 || isPending} onClick={() => push({ page: '1' })}>«</button>
+          <button className="btn btn-ghost btn-sm" disabled={page <= 1 || isPending} onClick={() => push({ page: String(page - 1) })}>‹ Anterior</button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1)
+            .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+            .reduce<(number | '...')[]>((acc, p, i, arr) => {
+              if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('...')
+              acc.push(p)
+              return acc
+            }, [])
+            .map((p, i) =>
+              p === '...'
+                ? <span key={`el-${i}`} style={{ padding: '0 0.25rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>…</span>
+                : <button key={p} className={`btn btn-sm ${p === page ? 'btn-primary' : 'btn-ghost'}`}
+                    onClick={() => push({ page: String(p) })} disabled={isPending} style={{ minWidth: 32 }}>{p}</button>
+            )}
+
+          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages || isPending} onClick={() => push({ page: String(page + 1) })}>Próxima ›</button>
+          <button className="btn btn-ghost btn-sm" disabled={page >= totalPages || isPending} onClick={() => push({ page: String(totalPages) })}>»</button>
+        </div>
+      )}
     </div>
   )
 }
