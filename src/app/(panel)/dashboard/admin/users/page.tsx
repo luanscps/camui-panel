@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import type { Database } from '@/types/database'
 import UsersTable from './UsersTable'
 import UsersControls from './UsersControls'
+import type { SortField, SortDir } from './UsersControls'
 import { Suspense } from 'react'
 
 export const metadata = { title: 'Usuários — CAMUI Panel' }
@@ -12,10 +13,14 @@ type UserRow = Database['public']['Views']['admin_users_overview']['Row']
 
 const PAGE_SIZE = 20
 
+const VALID_SORT_FIELDS: SortField[] = [
+  'registered_at', 'last_sign_in_at', 'expires_at', 'full_name', 'plan', 'license_status',
+]
+
 export default async function AdminUsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; q?: string; status?: string; plan?: string }>
+  searchParams: Promise<{ page?: string; q?: string; status?: string; plan?: string; sort?: string; dir?: string }>
 }) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,42 +30,29 @@ export default async function AdminUsersPage({
     .from('profiles').select('is_admin').eq('id', user.id).single() as unknown as { data: { is_admin: boolean } | null }
   if (!profile?.is_admin) redirect('/dashboard')
 
-  // Resolve searchParams (Next.js 15 — é uma Promise)
   const sp = await searchParams
-  const page    = Math.max(1, parseInt(sp.page   ?? '1',  10))
-  const q       = (sp.q      ?? '').trim()
-  const status  = (sp.status ?? '').trim()
-  const plan    = (sp.plan   ?? '').trim()
+  const page   = Math.max(1, parseInt(sp.page ?? '1', 10))
+  const q      = (sp.q      ?? '').trim()
+  const status = (sp.status ?? '').trim()
+  const plan   = (sp.plan   ?? '').trim()
+  const sort   = (VALID_SORT_FIELDS.includes(sp.sort as SortField) ? sp.sort : 'registered_at') as SortField
+  const dir    = (sp.dir === 'asc' ? 'asc' : 'desc') as SortDir
 
   const from = (page - 1) * PAGE_SIZE
   const to   = from + PAGE_SIZE - 1
 
-  // Monta a query base
   let query = (supabase as any)
     .from('admin_users_overview')
     .select('*', { count: 'exact' })
-    .order('registered_at', { ascending: false })
+    .order(sort, { ascending: dir === 'asc', nullsFirst: false })
     .range(from, to)
 
-  // Filtro de busca por nome ou email
-  if (q) {
-    query = query.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`)
-  }
-
-  // Filtro de status da licença
-  if (status) {
-    query = query.eq('license_status', status)
-  }
-
-  // Filtro de plano
-  if (plan) {
-    query = query.eq('plan', plan)
-  }
+  if (q)      query = query.or(`email.ilike.%${q}%,full_name.ilike.%${q}%`)
+  if (status) query = query.eq('license_status', status)
+  if (plan)   query = query.eq('plan', plan)
 
   const { data: users, count, error } = await query as unknown as {
-    data: UserRow[] | null
-    count: number | null
-    error: { message: string } | null
+    data: UserRow[] | null; count: number | null; error: { message: string } | null
   }
 
   const total = count ?? 0
@@ -98,6 +90,8 @@ export default async function AdminUsersPage({
             q={q}
             status={status}
             plan={plan}
+            sort={sort}
+            dir={dir}
           />
         </Suspense>
       )}
