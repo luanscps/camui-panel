@@ -20,6 +20,7 @@ export type Database = {
           android_id: string | null
           android_version: string | null
           app_version: string | null
+          cameras: Json | null
           device_brand: string | null
           device_hardware: string | null
           device_id: string
@@ -27,6 +28,7 @@ export type Database = {
           device_name: string | null
           fingerprint: string | null
           id: string
+          last_app_version: string | null
           last_seen: string | null
           last_seen_at: string | null
           license_id: string
@@ -42,6 +44,7 @@ export type Database = {
           android_id?: string | null
           android_version?: string | null
           app_version?: string | null
+          cameras?: Json | null
           device_brand?: string | null
           device_hardware?: string | null
           device_id: string
@@ -49,6 +52,7 @@ export type Database = {
           device_name?: string | null
           fingerprint?: string | null
           id?: string
+          last_app_version?: string | null
           last_seen?: string | null
           last_seen_at?: string | null
           license_id: string
@@ -64,6 +68,7 @@ export type Database = {
           android_id?: string | null
           android_version?: string | null
           app_version?: string | null
+          cameras?: Json | null
           device_brand?: string | null
           device_hardware?: string | null
           device_id?: string
@@ -71,6 +76,7 @@ export type Database = {
           device_name?: string | null
           fingerprint?: string | null
           id?: string
+          last_app_version?: string | null
           last_seen?: string | null
           last_seen_at?: string | null
           license_id?: string
