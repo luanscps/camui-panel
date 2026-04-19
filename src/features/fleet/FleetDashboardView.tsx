@@ -1,9 +1,12 @@
 "use client"
 
+import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
+import { FleetFilters, applyFilters, DEFAULT_FILTERS } from "./FleetFilters"
 import type { FleetDevice, FleetStats } from "./types"
+import type { FleetFilterState } from "./FleetFilters"
 
-// thermal_state pode ser: 'none' | 'light' | 'moderate' | 'serious' | 'critical'
+// thermal_state: 'none' | 'light' | 'moderate' | 'serious' | 'critical'
 const THERMAL_CRITICAL = new Set(["serious", "critical"])
 
 function isThermalCritical(device: FleetDevice): boolean {
@@ -16,20 +19,20 @@ function isBatteryCritical(device: FleetDevice): boolean {
 
 function isOnline(device: FleetDevice): boolean {
   if (!device.last_seen) return false
-  return new Date().getTime() - new Date(device.last_seen).getTime() < 5 * 60 * 1000
+  return Date.now() - new Date(device.last_seen).getTime() < 5 * 60 * 1000
 }
 
-function getStatusVariant(device: FleetDevice): "default" | "success" | "destructive" | "warning" | "info" | "outline" {
+function getStatusVariant(device: FleetDevice): "default" | "success" | "destructive" | "warning" | "outline" {
   if (isThermalCritical(device)) return "destructive"
   if (isBatteryCritical(device)) return "warning"
-  if (device.streaming_now) return "success"
-  if (isOnline(device)) return "info"
+  if (device.streaming_now)      return "success"
+  if (isOnline(device))          return "default"
   return "outline"
 }
 
 function getStatusLabel(device: FleetDevice): string {
   if (device.streaming_now) return "Streaming"
-  if (isOnline(device)) return "Online"
+  if (isOnline(device))     return "Online"
   return "Offline"
 }
 
@@ -46,21 +49,36 @@ function StatBox({ label, value, warn }: { label: string; value: number | null; 
 }
 
 export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[]; stats: FleetStats }) {
+  const [filters, setFilters] = useState<FleetFilterState>(DEFAULT_FILTERS)
+
+  const filtered = applyFilters(devices, filters)
+
   const batteryCritical = devices.filter(isBatteryCritical).length
   const thermalCritical = devices.filter(isThermalCritical).length
 
   return (
     <div className="space-y-6">
-      {/* Stats Row */}
+
+      {/* Stats Row — sempre sobre o total real, nao o filtrado */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <StatBox label="Total" value={stats.total_devices} />
-        <StatBox label="Online" value={stats.online_now} />
-        <StatBox label="Streaming" value={stats.streaming_now} />
+        <StatBox label="Total"           value={stats.total_devices} />
+        <StatBox label="Online"          value={stats.online_now} />
+        <StatBox label="Streaming"       value={stats.streaming_now} />
         <StatBox label="Bateria crítica" value={batteryCritical} warn />
         <StatBox label="Térmico crítico" value={thermalCritical} warn />
       </div>
 
-      {/* Devices Table */}
+      {/* Filtros */}
+      <FleetFilters devices={devices} value={filters} onChange={setFilters} />
+
+      {/* Contador de resultados */}
+      {filtered.length !== devices.length && (
+        <p className="text-sm text-muted-foreground">
+          Exibindo {filtered.length} de {devices.length} devices
+        </p>
+      )}
+
+      {/* Tabela */}
       <div className="rounded-lg border overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-muted-foreground">
@@ -75,14 +93,14 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {devices.length === 0 && (
+            {filtered.length === 0 && (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
-                  Nenhum device encontrado.
+                  Nenhum device encontrado para os filtros selecionados.
                 </td>
               </tr>
             )}
-            {devices.map((device) => (
+            {filtered.map((device) => (
               <tr key={device.device_id} className="hover:bg-muted/30 transition-colors">
                 <td className="px-4 py-3">
                   <p className="font-medium leading-none">{device.device_name ?? device.device_model ?? "—"}</p>
