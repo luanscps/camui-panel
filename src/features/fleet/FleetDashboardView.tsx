@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { Badge } from "@/components/ui/badge"
 import { FleetFilters, applyFilters, DEFAULT_FILTERS } from "./FleetFilters"
+import { FleetDeviceDrawer } from "./FleetDeviceDrawer"
+import { getDeviceTimeline } from "./query"
 import type { FleetDevice, FleetStats } from "./types"
 import type { FleetFilterState } from "./FleetFilters"
 
@@ -59,7 +61,8 @@ function formatLastSeen(ts: string | null): string {
 }
 
 export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[]; stats: FleetStats }) {
-  const [filters, setFilters] = useState<FleetFilterState>(DEFAULT_FILTERS)
+  const [filters, setFilters]           = useState<FleetFilterState>(DEFAULT_FILTERS)
+  const [selectedDevice, setSelected]   = useState<FleetDevice | null>(null)
 
   const filtered = applyFilters(devices, filters)
   const batteryCritical = devices.filter(isBatteryCritical).length
@@ -68,7 +71,7 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
   return (
     <div className="space-y-6">
 
-      {/* Stats — sempre sobre o total real */}
+      {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <StatBox label="Total"           value={stats.total_devices} />
         <StatBox label="Online"          value={stats.online_now} />
@@ -109,7 +112,11 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
               </tr>
             )}
             {filtered.map((device) => (
-              <tr key={device.device_id} className="hover:bg-muted/30 transition-colors">
+              <tr
+                key={device.device_id}
+                className="hover:bg-muted/30 transition-colors cursor-pointer"
+                onClick={() => setSelected(device)}
+              >
                 <td className="px-4 py-3">
                   <p className="font-medium leading-none">{device.device_name ?? device.device_model ?? "—"}</p>
                   <p className="text-xs text-muted-foreground mt-1">
@@ -149,6 +156,13 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
           </tbody>
         </table>
       </div>
+
+      {/* Drawer — renderizado fora da tabela para overlay correto */}
+      <FleetDeviceDrawer
+        device={selectedDevice}
+        onClose={() => setSelected(null)}
+        onLoadTimeline={getDeviceTimeline}
+      />
     </div>
   )
 }
