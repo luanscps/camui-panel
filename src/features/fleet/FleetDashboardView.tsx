@@ -19,10 +19,11 @@ function isOnline(device: FleetDevice): boolean {
   return new Date().getTime() - new Date(device.last_seen).getTime() < 5 * 60 * 1000
 }
 
-function getStatusVariant(device: FleetDevice): "default" | "secondary" | "destructive" | "outline" {
+function getStatusVariant(device: FleetDevice): "default" | "success" | "destructive" | "warning" | "outline" {
   if (isThermalCritical(device)) return "destructive"
-  if (isBatteryCritical(device)) return "secondary"
-  if (device.streaming_now) return "default"
+  if (isBatteryCritical(device)) return "warning"
+  if (device.streaming_now) return "success"
+  if (isOnline(device)) return "info"
   return "outline"
 }
 
@@ -45,7 +46,6 @@ function StatBox({ label, value, warn }: { label: string; value: number | null; 
 }
 
 export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[]; stats: FleetStats }) {
-  // calcula batteryCritical e thermalCritical no frontend
   const batteryCritical = devices.filter(isBatteryCritical).length
   const thermalCritical = devices.filter(isThermalCritical).length
 
