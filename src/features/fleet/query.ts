@@ -10,23 +10,26 @@ function isOnline(device: FleetDevice): boolean {
   return Date.now() - new Date(device.last_seen_at).getTime() < ONLINE_THRESHOLD_MS
 }
 
-function isBatteryCritical(device: FleetDevice): boolean {
-  return device.battery_level !== null && device.battery_level < 20 && !device.is_charging
-}
-
-function isThermalCritical(device: FleetDevice): boolean {
-  return THERMAL_CRITICAL.has(device.thermal_state ?? "")
-}
-
-function makeSupabase() {
+// ─── SERVER-SIDE ONLY (Service Role) ─────────────────────────────────────────
+function makeServerSupabase() {
   return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 }
 
+// ─── CLIENT-SAFE (anon key + RLS) ────────────────────────────────────────────
+function makeClientSupabase() {
+  return createClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+}
+
+// ─── Server actions (Server Components / Route Handlers only) ────────────────
+
 export async function getFleetDashboard(userId: string) {
-  const supabase = makeSupabase()
+  const supabase = makeServerSupabase()
 
   const { data: license, error: licenseError } = await supabase
     .from("licenses")
@@ -59,11 +62,13 @@ export async function getFleetDashboard(userId: string) {
   return { devices, stats }
 }
 
+// ─── Client-safe queries (Client Components via anon key + RLS) ──────────────
+
 export async function getDeviceTimeline(
   deviceId: string,
   limit = 20
 ): Promise<StreamSession[]> {
-  const supabase = makeSupabase()
+  const supabase = makeClientSupabase()
 
   const { data, error } = await supabase
     .from("stream_sessions")
@@ -75,8 +80,6 @@ export async function getDeviceTimeline(
   if (error) throw error
   return data ?? []
 }
-
-// ─── P2: Remote Commands ──────────────────────────────────────────────────────
 
 export type RemoteCommandName =
   | "start_stream"
@@ -91,9 +94,9 @@ export async function sendRemoteCommand(
   command: RemoteCommandName,
   payload?: Record<string, string>
 ): Promise<RemoteCommandRow> {
-  const supabase = makeSupabase()
+  const supabase = makeClientSupabase()
 
-  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString() // expira em 5 min
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString()
 
   const { data, error } = await supabase
     .from("remote_commands")
@@ -116,7 +119,7 @@ export async function getRecentCommands(
   deviceId: string,
   limit = 10
 ): Promise<RemoteCommandRow[]> {
-  const supabase = makeSupabase()
+  const supabase = makeClientSupabase()
 
   const { data, error } = await supabase
     .from("remote_commands")
