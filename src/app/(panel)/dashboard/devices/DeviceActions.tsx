@@ -1,96 +1,141 @@
 'use client'
 
-import { useState } from 'react'
-import { revokeDeviceAction, suspendDeviceAction, reactivateDeviceAction } from './actions'
+import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from '@/components/ui/alert-dialog'
+
+type Action = 'suspend' | 'activate' | 'revoke'
 
 type Props = {
   activationId: string
-  status: string // 'ACTIVE' | 'SUSPENDED'
+  status: string
+}
+
+async function runAction(activationId: string, action: Action) {
+  const res = await fetch('/api/admin/device-action', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ activationId, action }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body?.error ?? 'Erro ao executar ação')
+  }
 }
 
 export default function DeviceActions({ activationId, status }: Props) {
-  const [confirmRevoke, setConfirmRevoke] = useState(false)
-  const [loading, setLoading]   = useState<string | null>(null)
-  const [error, setError]       = useState<string | null>(null)
+  const [open, setOpen] = useState<Action | null>(null)
+  const [isPending, startTransition] = useTransition()
 
-  async function run(action: () => Promise<void>, key: string) {
-    setLoading(key)
-    setError(null)
-    try {
-      await action()
-    } catch (e: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-      setError(e.message)
-    } finally {
-      setLoading(null)
-      setConfirmRevoke(false)
-    }
+  function confirm(action: Action) {
+    startTransition(async () => {
+      try {
+        await runAction(activationId, action)
+        toast.success(
+          action === 'suspend'  ? 'Dispositivo suspenso.'  :
+          action === 'activate' ? 'Dispositivo reativado.' :
+          'Dispositivo revogado.'
+        )
+        setOpen(null)
+        // Server Component recarrega ao navegar; força refresh
+        window.location.reload()
+      } catch (e: any) {
+        toast.error(e.message ?? 'Erro inesperado.')
+      }
+    })
   }
 
+  const isActive    = status === 'ACTIVE'
   const isSuspended = status === 'SUSPENDED'
 
+  const dialogMeta: Record<Action, { title: string; desc: string; confirmLabel: string; variant: 'default' | 'destructive' }> = {
+    suspend:  { title: 'Suspender dispositivo', desc: 'O dispositivo perderá acesso ao streaming até ser reativado.',    confirmLabel: 'Suspender',  variant: 'destructive' },
+    activate: { title: 'Reativar dispositivo',  desc: 'O dispositivo voltará a ter acesso conforme o plano da licença.', confirmLabel: 'Reativar',   variant: 'default' },
+    revoke:   { title: 'Revogar dispositivo',   desc: 'Esta ação é irreversível. O device precisará ser reativado manualmente.', confirmLabel: 'Revogar', variant: 'destructive' },
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.375rem' }}>
-
-      {/* Erro */}
-      {error && (
-        <span style={{ fontSize: '0.6875rem', color: 'var(--color-error)', maxWidth: 160, textAlign: 'right' }}>
-          ⚠️ {error}
-        </span>
+    <div className="flex flex-wrap gap-1">
+      {/* Suspender */}
+      {isActive && (
+        <AlertDialog open={open === 'suspend'} onOpenChange={v => setOpen(v ? 'suspend' : null)}>
+          <AlertDialogTrigger asChild>
+            <Button variant="outline" size="xs">Suspender</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dialogMeta.suspend.title}</AlertDialogTitle>
+              <AlertDialogDescription>{dialogMeta.suspend.desc}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-transparent text-[#a12c7b] border border-[rgba(161,44,123,0.3)] hover:bg-[rgba(161,44,123,0.06)]"
+                onClick={() => confirm('suspend')}
+                disabled={isPending}
+              >
+                {isPending ? 'Aguarde…' : 'Suspender'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
-      {/* Botão Suspender / Reativar */}
-      {!confirmRevoke && (
-        <button
-          onClick={() => run(
-            isSuspended
-              ? () => reactivateDeviceAction(activationId)
-              : () => suspendDeviceAction(activationId),
-            isSuspended ? 'reactivate' : 'suspend'
-          )}
-          disabled={loading !== null}
-          className="btn btn-xs"
-          style={{
-            opacity: loading !== null ? 0.6 : 1,
-            cursor: loading !== null ? 'not-allowed' : 'pointer',
-            background: isSuspended ? 'rgba(67,122,34,0.12)' : 'rgba(218,113,1,0.1)',
-            color: isSuspended ? 'var(--color-success)' : 'var(--color-warning)',
-            border: `1px solid ${isSuspended ? 'rgba(67,122,34,0.25)' : 'rgba(218,113,1,0.25)'}`,
-          }}
-        >
-          {loading === 'suspend'     ? 'Suspendendo...' :
-           loading === 'reactivate' ? 'Reativando...'  :
-           isSuspended              ? '▶ Reativar'     : '⏸ Suspender'}
-        </button>
+      {/* Reativar */}
+      {isSuspended && (
+        <AlertDialog open={open === 'activate'} onOpenChange={v => setOpen(v ? 'activate' : null)}>
+          <AlertDialogTrigger asChild>
+            <Button variant="secondary" size="xs">Reativar</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dialogMeta.activate.title}</AlertDialogTitle>
+              <AlertDialogDescription>{dialogMeta.activate.desc}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction onClick={() => confirm('activate')} disabled={isPending}>
+                {isPending ? 'Aguarde…' : 'Reativar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
 
-      {/* Botão Revogar com confirmação */}
-      {!confirmRevoke ? (
-        <button
-          onClick={() => setConfirmRevoke(true)}
-          disabled={loading !== null}
-          className="btn btn-danger btn-xs"
-          style={{ opacity: loading !== null ? 0.6 : 1 }}
-        >
-          Revogar
-        </button>
-      ) : (
-        <div style={{ display: 'flex', gap: '0.375rem' }}>
-          <button
-            onClick={() => run(() => revokeDeviceAction(activationId), 'revoke')}
-            disabled={loading !== null}
-            className="btn btn-danger btn-xs"
-            style={{ opacity: loading !== null ? 0.6 : 1 }}
-          >
-            {loading === 'revoke' ? 'Removendo...' : 'Confirmar'}
-          </button>
-          <button
-            onClick={() => setConfirmRevoke(false)}
-            disabled={loading !== null}
-            className="btn btn-ghost btn-xs"
-          >
-            Cancelar
-          </button>
-        </div>
+      {/* Revogar */}
+      {(isActive || isSuspended) && (
+        <AlertDialog open={open === 'revoke'} onOpenChange={v => setOpen(v ? 'revoke' : null)}>
+          <AlertDialogTrigger asChild>
+            <Button variant="destructive" size="xs">Revogar</Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{dialogMeta.revoke.title}</AlertDialogTitle>
+              <AlertDialogDescription>{dialogMeta.revoke.desc}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isPending}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-transparent text-[#a12c7b] border border-[rgba(161,44,123,0.3)] hover:bg-[rgba(161,44,123,0.06)]"
+                onClick={() => confirm('revoke')}
+                disabled={isPending}
+              >
+                {isPending ? 'Aguarde…' : 'Revogar'}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </div>
   )

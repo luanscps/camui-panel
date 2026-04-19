@@ -1,6 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { SelectNative } from '@/components/ui/select-native'
+import {
+  Dialog,
+  DialogTrigger,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { updateLicenseAction } from '../actions'
 
 type Props = {
@@ -11,11 +25,6 @@ type Props = {
   currentExpiresAt: string | null
 }
 
-/**
- * Calcula nova data de expiração somando `days` dias.
- * Lógica inteligente: se a licença já expirou (ou não tem data),
- * a contagem começa a partir de HOJE, não da data antiga.
- */
 function addDays(dateStr: string | null, days: number): string {
   const base = dateStr ? new Date(dateStr) : new Date()
   if (base < new Date()) base.setTime(new Date().getTime())
@@ -31,7 +40,7 @@ export default function EditLicenseButton({
   currentExpiresAt,
 }: Props) {
   const [open, setOpen] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [plan, setPlan] = useState(currentPlan)
   const [status, setStatus] = useState(currentStatus)
@@ -40,188 +49,98 @@ export default function EditLicenseButton({
     currentExpiresAt ? currentExpiresAt.slice(0, 10) : ''
   )
 
-  async function handleSave() {
-    setLoading(true)
+  function handleSave() {
     setError(null)
-    try {
-      await updateLicenseAction({
-        licenseId,
-        plan,
-        status,
-        maxDevices,
-        expiresAt: expiresAt || null,
-      })
-      setOpen(false)
-    } catch (e: any) { // eslint-disable-line
-      setError(e.message)
-    } finally {
-      setLoading(false)
-    }
+    startTransition(async () => {
+      try {
+        await updateLicenseAction({ licenseId, plan, status, maxDevices, expiresAt: expiresAt || null })
+        toast.success('Licença atualizada com sucesso.')
+        setOpen(false)
+      } catch (e: any) {
+        setError(e.message ?? 'Erro ao salvar')
+      }
+    })
   }
 
-  const inputStyle = {
-    width: '100%',
-    padding: '0.4rem 0.6rem',
-    border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-sm)',
-    background: 'var(--color-surface)',
-    color: 'var(--color-text)',
-    fontSize: '0.8125rem',
-  }
-
-  const labelStyle = {
-    fontSize: '0.7rem',
-    fontWeight: 600,
-    textTransform: 'uppercase' as const,
-    letterSpacing: '0.04em',
-    color: 'var(--color-text-muted)',
-    display: 'block',
-    marginBottom: '0.3rem',
-  }
-
-  if (!open) {
-    return (
-      <button onClick={() => setOpen(true)} className="btn btn-secondary btn-xs">
-        Editar
-      </button>
-    )
-  }
+  const labelCls = 'text-[0.7rem] font-semibold uppercase tracking-wide text-[var(--color-text-muted)] block mb-1'
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 100,
-        background: 'rgba(0,0,0,0.5)',
-        backdropFilter: 'blur(2px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '1rem',
-      }}
-    >
-      <div className="card" style={{ width: '100%', maxWidth: 440, padding: '1.5rem' }}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="secondary" size="xs">Editar</Button>
+      </DialogTrigger>
 
-        {/* Header */}
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: '1.25rem',
-          }}
-        >
-          <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>Editar Licença</div>
-          <button onClick={() => setOpen(false)} className="btn btn-ghost btn-sm">✕</button>
-        </div>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Editar Licença</DialogTitle>
+          <DialogDescription>Altere plano, status, limite de devices ou data de expiração.</DialogDescription>
+        </DialogHeader>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-
-          {/* Plano + Status lado a lado */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div className="flex flex-col gap-3.5">
+          {/* Plano + Status */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label style={labelStyle}>Plano</label>
-              <select value={plan} onChange={e => setPlan(e.target.value)} style={inputStyle}>
+              <label className={labelCls}>Plano</label>
+              <SelectNative value={plan} onChange={e => setPlan(e.target.value)}>
                 <option value="BASIC">BASIC</option>
                 <option value="PRO">PRO</option>
-              </select>
+              </SelectNative>
             </div>
             <div>
-              <label style={labelStyle}>Status</label>
-              <select value={status} onChange={e => setStatus(e.target.value)} style={inputStyle}>
+              <label className={labelCls}>Status</label>
+              <SelectNative value={status} onChange={e => setStatus(e.target.value)}>
                 <option value="ACTIVE">ACTIVE</option>
                 <option value="SUSPENDED">SUSPENDED</option>
                 <option value="EXPIRED">EXPIRED</option>
-              </select>
+              </SelectNative>
             </div>
           </div>
 
-          {/* Máx. Devices + Expiração lado a lado */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          {/* Máx. Devices + Expiração */}
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label style={labelStyle}>Máx. Devices</label>
-              <input
+              <label className={labelCls}>Máx. Devices</label>
+              <Input
                 type="number"
-                min={1}
-                max={10}
+                min={1} max={10}
                 value={maxDevices}
                 onChange={e => setMaxDevices(Number(e.target.value))}
-                style={inputStyle}
               />
             </div>
             <div>
-              <label style={labelStyle}>Expiração</label>
-              <input
+              <label className={labelCls}>Expiração</label>
+              <Input
                 type="date"
                 value={expiresAt}
                 onChange={e => setExpiresAt(e.target.value)}
-                style={inputStyle}
               />
             </div>
           </div>
 
-          {/* Botões de extensão rápida */}
+          {/* Extensão rápida */}
           <div>
-            <label style={labelStyle}>Extensão rápida</label>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setExpiresAt(addDays(expiresAt || null, 30))}
-              >
-                +30 dias
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setExpiresAt(addDays(expiresAt || null, 180))}
-              >
-                +6 meses
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setExpiresAt(addDays(expiresAt || null, 365))}
-              >
-                +1 ano
-              </button>
+            <label className={labelCls}>Extensão rápida</label>
+            <div className="flex gap-2">
+              <Button variant="outline" size="xs" type="button" onClick={() => setExpiresAt(addDays(expiresAt || null, 30))}>+30 dias</Button>
+              <Button variant="outline" size="xs" type="button" onClick={() => setExpiresAt(addDays(expiresAt || null, 180))}>+6 meses</Button>
+              <Button variant="outline" size="xs" type="button" onClick={() => setExpiresAt(addDays(expiresAt || null, 365))}>+1 ano</Button>
             </div>
           </div>
 
           {error && (
-            <p style={{ fontSize: '0.8rem', color: 'var(--color-error)' }}>⚠️ {error}</p>
+            <Alert variant="destructive">
+              <AlertDescription>⚠️ {error}</AlertDescription>
+            </Alert>
           )}
-
-          {/* Rodapé */}
-          <div
-            style={{
-              display: 'flex',
-              gap: '0.5rem',
-              justifyContent: 'flex-end',
-              paddingTop: '0.25rem',
-              borderTop: '1px solid var(--color-border)',
-              marginTop: '0.25rem',
-            }}
-          >
-            <button
-              onClick={() => setOpen(false)}
-              disabled={loading}
-              className="btn btn-ghost btn-sm"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={loading}
-              className="btn btn-primary btn-sm"
-            >
-              {loading ? 'Salvando...' : 'Salvar'}
-            </button>
-          </div>
-
         </div>
-      </div>
-    </div>
+
+        <DialogFooter>
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)} disabled={isPending}>Cancelar</Button>
+          <Button size="sm" onClick={handleSave} disabled={isPending}>
+            {isPending ? 'Salvando…' : 'Salvar'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
