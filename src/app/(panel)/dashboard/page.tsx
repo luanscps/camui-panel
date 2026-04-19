@@ -24,6 +24,22 @@ type Device = {
   status?:          string | null
   activated_at:     string
   last_seen:        string | null
+  // Sprint 2 — telemetria
+  streaming_now?:   boolean
+  battery_level?:   number | null
+  thermal_state?:   string | null
+  network_type?:    string | null
+  last_seen_at?:    string | null
+}
+
+type FleetDashboard = {
+  user_id:           string | null
+  total_devices:     number | null
+  active_devices:    number | null
+  suspended_devices: number | null
+  online_now:        number | null
+  streaming_now:     number | null
+  last_activity:     string | null
 }
 
 function greeting(name: string) {
@@ -50,6 +66,18 @@ function deviceStatusLabel(status?: string | null) {
   return 'Ativo'
 }
 
+function thermalBadge(state: string | null | undefined) {
+  if (!state || state === 'nominal') return null
+  const map: Record<string, { label: string; color: string }> = {
+    fair:      { label: '🌡️ Morno',      color: 'var(--color-warning)' },
+    serious:   { label: '🌡️ Quente',     color: '#f97316' },
+    critical:  { label: '🌡️ Crítico',    color: 'var(--color-error)' },
+    emergency: { label: '🌡️ Emergência', color: 'var(--color-error)' },
+    shutdown:  { label: '🌡️ Desligando', color: 'var(--color-error)' },
+  }
+  return map[state] ?? null
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -61,37 +89,54 @@ export default async function DashboardPage() {
   const { data: license } = await (supabase as any)
     .from('licenses').select('*').eq('user_id', user.id).maybeSingle() as { data: License | null }
 
+  // Fleet dashboard — totais agregados da view
+  const { data: fleet } = license
+    ? await (supabase as any)
+        .from('fleet_dashboard')
+        .select('*')
+        .eq('user_id', user.id)
+        .maybeSingle() as { data: FleetDashboard | null }
+    : { data: null as FleetDashboard | null }
+
   const { data: devices } = license
     ? await (supabase as any)
         .from('device_activations')
-        .select('id, device_name, device_brand, device_model, android_version, android_id, sub_license_key, status, activated_at, last_seen')
+        .select(`id, device_name, device_brand, device_model, android_version,
+                 android_id, sub_license_key, status, activated_at, last_seen,
+                 last_seen_at, streaming_now, battery_level, thermal_state, network_type`)
         .eq('license_id', license.id)
         .order('last_seen', { ascending: false, nullsFirst: false }) as { data: Device[] | null }
     : { data: [] as Device[] }
 
-  const displayName = profile?.full_name ?? user.email?.split('@')[0] ?? 'usuário'
-  const isPro = license?.plan === 'PRO'
-  const activeDevices = devices?.length ?? 0
-  const daysLeft = daysUntil(license?.expires_at ?? null)
+  const displayName  = profile?.full_name ?? user.email?.split('@')[0] ?? 'usuário'
+  const isPro        = license?.plan === 'PRO'
+  const daysLeft     = daysUntil(license?.expires_at ?? null)
   const expiringSoon = daysLeft !== null && daysLeft <= 7 && daysLeft >= 0
-  const isExpired = daysLeft !== null && daysLeft < 0
+  const isExpired    = daysLeft !== null && daysLeft < 0
+
+  // Totais — prioriza fleet_dashboard, fallback para contagem local
+  const totalDevices     = fleet?.total_devices     ?? devices?.length ?? 0
+  const activeDevices    = fleet?.active_devices    ?? devices?.filter(d => d.status === 'ACTIVE').length ?? 0
+  const suspendedDevices = fleet?.suspended_devices ?? devices?.filter(d => d.status === 'SUSPENDED').length ?? 0
+  const onlineNow        = fleet?.online_now        ?? 0
+  const streamingNow     = fleet?.streaming_now     ?? devices?.filter(d => d.streaming_now).length ?? 0
 
   const planFeatures: Record<string, { label: string; included: boolean }[]> = {
     BASIC: [
-      { label: 'Streaming RTMP básico', included: true },
-      { label: '1 dispositivo simultâneo', included: true },
-      { label: 'Suporte por email', included: true },
-      { label: 'RTMP avançado / multi-stream', included: false },
-      { label: 'Até 5 dispositivos', included: false },
-      { label: 'Suporte prioritário', included: false },
+      { label: 'Streaming RTMP básico',       included: true  },
+      { label: '1 dispositivo simultâneo',    included: true  },
+      { label: 'Suporte por email',           included: true  },
+      { label: 'RTMP avançado / multi-stream',included: false },
+      { label: 'Até 5 dispositivos',          included: false },
+      { label: 'Suporte prioritário',         included: false },
     ],
     PRO: [
-      { label: 'Streaming RTMP básico', included: true },
-      { label: 'RTMP avançado / multi-stream', included: true },
-      { label: 'Até 5 dispositivos simultâneos', included: true },
-      { label: 'Suporte prioritário', included: true },
-      { label: 'Atualizações antecipadas', included: true },
-      { label: 'Acesso a recursos beta', included: true },
+      { label: 'Streaming RTMP básico',           included: true },
+      { label: 'RTMP avançado / multi-stream',     included: true },
+      { label: 'Até 5 dispositivos simultâneos',   included: true },
+      { label: 'Suporte prioritário',              included: true },
+      { label: 'Atualizações antecipadas',         included: true },
+      { label: 'Acesso a recursos beta',           included: true },
     ],
   }
   const features = planFeatures[license?.plan ?? 'BASIC']
@@ -142,21 +187,42 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Mini-cards de resumo */}
+      {/* ═══ STAT CARDS — agora com dados da fleet_dashboard ═══ */}
       {license && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div className="stat-card">
             <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{isPro ? '⭐' : '🔵'}</div>
             <div style={{ fontSize: '1.25rem', fontWeight: 700, color: isPro ? 'var(--color-primary)' : '#1d4ed8' }}>{license.plan}</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Plano atual</div>
           </div>
+
           <div className="stat-card">
             <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>📱</div>
             <div style={{ fontSize: '1.25rem', fontWeight: 700, color: activeDevices >= license.max_devices ? 'var(--color-error)' : 'var(--color-text)' }}>
               {activeDevices}<span style={{ fontSize: '0.875rem', fontWeight: 400, color: 'var(--color-text-muted)' }}> / {license.max_devices}</span>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dispositivos</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ativos</div>
           </div>
+
+          {/* NOVO — Online agora */}
+          <div className="stat-card">
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>🟢</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: onlineNow > 0 ? 'var(--color-success)' : 'var(--color-text-muted)' }}>
+              {onlineNow}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Online agora</div>
+          </div>
+
+          {/* NOVO — Ao vivo agora */}
+          <div className="stat-card">
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>📡</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: streamingNow > 0 ? 'var(--color-error)' : 'var(--color-text-muted)' }}>
+              {streamingNow}
+              {streamingNow > 0 && <span style={{ fontSize: '0.65rem', marginLeft: 4, color: 'var(--color-error)', animation: 'pulse 1.5s infinite' }}>● AO VIVO</span>}
+            </div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Transmitindo</div>
+          </div>
+
           <div className="stat-card">
             <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>
               {isExpired ? '❌' : expiringSoon ? '⏳' : daysLeft === null ? '♾️' : '✅'}
@@ -166,11 +232,14 @@ export default async function DashboardPage() {
             </div>
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Dias restantes</div>
           </div>
-          <div className="stat-card">
-            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>{isPro ? '🚀' : '📡'}</div>
-            <div style={{ fontSize: '1rem', fontWeight: 700, color: isPro ? 'var(--color-success)' : 'var(--color-text-muted)' }}>{isPro ? 'Avançado' : 'Básico'}</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>RTMP</div>
-          </div>
+
+          {suspendedDevices > 0 && (
+            <div className="stat-card">
+              <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>⚠️</div>
+              <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-warning)' }}>{suspendedDevices}</div>
+              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Suspensos</div>
+            </div>
+          )}
         </div>
       )}
 
@@ -277,20 +346,20 @@ export default async function DashboardPage() {
           <div className="card-subtitle">Acesso rápido</div>
         </div>
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-          <Link href="/dashboard/profile" className="btn btn-secondary">👤 Meu Perfil</Link>
-          <Link href="/dashboard/license" className="btn btn-secondary">🔑 Licença</Link>
-          <Link href="/dashboard/devices" className="btn btn-secondary">📱 Dispositivos</Link>
+          <Link href="/dashboard/profile"  className="btn btn-secondary">👤 Meu Perfil</Link>
+          <Link href="/dashboard/license"  className="btn btn-secondary">🔑 Licença</Link>
+          <Link href="/dashboard/devices"  className="btn btn-secondary">📱 Dispositivos</Link>
         </div>
       </div>
 
-      {/* Dispositivos — tabela expandida */}
+      {/* Tabela de dispositivos — com telemetria inline */}
       <div className="card">
         <div className="card-header">
           <div>
             <div className="card-title">Dispositivos Ativados</div>
             <div className="card-subtitle">
               {activeDevices > 0
-                ? `${activeDevices} dispositivo${activeDevices > 1 ? 's' : ''} conectado${activeDevices > 1 ? 's' : ''}`
+                ? `${activeDevices} dispositivo${activeDevices > 1 ? 's' : ''} ativo${activeDevices > 1 ? 's' : ''}${onlineNow > 0 ? ` · ${onlineNow} online agora` : ''}`
                 : 'Nenhum dispositivo ativo'}
             </div>
           </div>
@@ -315,7 +384,7 @@ export default async function DashboardPage() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  {['Dispositivo', 'Marca', 'Modelo', 'Android', 'ID do Dispositivo', 'Sub-licença', 'Status', 'Último acesso'].map(col => (
+                  {['Dispositivo', 'Marca / Modelo', 'Android', 'Sub-licença', 'Telemetria', 'Status', 'Último acesso'].map(col => (
                     <th key={col} style={{ padding: '0.5rem 0.75rem', textAlign: 'left', fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                       {col}
                     </th>
@@ -323,63 +392,95 @@ export default async function DashboardPage() {
                 </tr>
               </thead>
               <tbody>
-                {(devices as Device[]).map((device, i) => (
-                  <tr key={device.id} className="device-row" style={{ borderBottom: i < devices.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
-                    {/* Dispositivo */}
-                    <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                        <div style={{ width: 30, height: 30, borderRadius: 'var(--radius-sm)', background: 'rgba(1,105,111,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', flexShrink: 0 }}>
-                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <rect x="5" y="2" width="14" height="20" rx="2"/>
-                            <path d="M12 18h.01"/>
-                          </svg>
+                {(devices as Device[]).map((device, i) => {
+                  const lastSeenAt   = device.last_seen_at ? new Date(device.last_seen_at) : null
+                  const minutesAgo   = lastSeenAt ? Math.floor((Date.now() - lastSeenAt.getTime()) / 60000) : null
+                  const isOnline     = minutesAgo !== null && minutesAgo < 5
+                  const thermal      = thermalBadge(device.thermal_state)
+
+                  return (
+                    <tr key={device.id} className="device-row" style={{ borderBottom: i < devices.length - 1 ? '1px solid var(--color-border)' : 'none' }}>
+                      {/* Dispositivo */}
+                      <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
+                          <div style={{ width: 30, height: 30, borderRadius: 'var(--radius-sm)', background: 'rgba(1,105,111,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)', flexShrink: 0 }}>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <rect x="5" y="2" width="14" height="20" rx="2"/>
+                              <path d="M12 18h.01"/>
+                            </svg>
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 600, color: 'var(--color-text)' }}>{device.device_name || 'Android'}</div>
+                            {device.streaming_now && (
+                              <div style={{ fontSize: '0.65rem', color: 'var(--color-error)', fontWeight: 700 }}>● AO VIVO</div>
+                            )}
+                          </div>
                         </div>
-                        <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>
-                          {device.device_name || 'Android'}
+                      </td>
+                      {/* Marca / Modelo */}
+                      <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                        {[device.device_brand, device.device_model].filter(Boolean).join(' ') || '—'}
+                      </td>
+                      {/* Android */}
+                      <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                        {device.android_version
+                          ? <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(1,105,111,0.08)', color: 'var(--color-primary)', fontSize: '0.75rem', fontWeight: 600 }}>Android {device.android_version}</span>
+                          : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                      </td>
+                      {/* Sub-licença */}
+                      <td style={{ padding: '0.75rem' }}>
+                        {device.sub_license_key
+                          ? <code style={{ fontSize: '0.7rem', background: 'var(--color-surface-offset)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{device.sub_license_key}</code>
+                          : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
+                      </td>
+                      {/* NOVA — Telemetria inline */}
+                      <td style={{ padding: '0.75rem' }}>
+                        <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                          {device.battery_level !== null && device.battery_level !== undefined && (
+                            <span style={{
+                              fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: 999,
+                              background: device.battery_level < 20 ? 'rgba(239,68,68,0.1)' : 'var(--color-surface-offset)',
+                              color: device.battery_level < 20 ? 'var(--color-error)' : 'var(--color-text-muted)',
+                              border: `1px solid ${device.battery_level < 20 ? 'rgba(239,68,68,0.3)' : 'var(--color-border)'}`,
+                            }}>
+                              🔋 {device.battery_level}%
+                            </span>
+                          )}
+                          {device.network_type && (
+                            <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: 999, background: 'var(--color-surface-offset)', color: 'var(--color-text-muted)', border: '1px solid var(--color-border)' }}>
+                              📶 {device.network_type.toUpperCase()}
+                            </span>
+                          )}
+                          {thermal && (
+                            <span style={{ fontSize: '0.68rem', padding: '0.1rem 0.4rem', borderRadius: 999, background: 'var(--color-surface-offset)', color: thermal.color, border: `1px solid ${thermal.color}44` }}>
+                              {thermal.label}
+                            </span>
+                          )}
+                          {!device.battery_level && !device.network_type && !thermal && (
+                            <span style={{ color: 'var(--color-text-faint)', fontSize: '0.75rem' }}>—</span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Status */}
+                      <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', fontWeight: 600, color: deviceStatusColor(device.status) }}>
+                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: deviceStatusColor(device.status), display: 'inline-block' }} />
+                          {deviceStatusLabel(device.status)}
                         </span>
-                      </div>
-                    </td>
-                    {/* Marca */}
-                    <td style={{ padding: '0.75rem', color: 'var(--color-text)', whiteSpace: 'nowrap' }}>
-                      {device.device_brand ?? <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
-                    </td>
-                    {/* Modelo */}
-                    <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                      {device.device_model ?? <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
-                    </td>
-                    {/* Android version */}
-                    <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
-                      {device.android_version
-                        ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.15rem 0.5rem', borderRadius: 'var(--radius-full)', background: 'rgba(1,105,111,0.08)', color: 'var(--color-primary)', fontSize: '0.75rem', fontWeight: 600 }}>Android {device.android_version}</span>
-                        : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
-                    </td>
-                    {/* android_id */}
-                    <td style={{ padding: '0.75rem' }}>
-                      {device.android_id
-                        ? <code style={{ fontSize: '0.7rem', background: 'var(--color-surface-offset)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', letterSpacing: '0.02em', whiteSpace: 'nowrap' }}>{device.android_id}</code>
-                        : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
-                    </td>
-                    {/* sub_license_key */}
-                    <td style={{ padding: '0.75rem' }}>
-                      {device.sub_license_key
-                        ? <code style={{ fontSize: '0.7rem', background: 'var(--color-surface-offset)', padding: '0.15rem 0.4rem', borderRadius: 'var(--radius-sm)', color: 'var(--color-text-muted)', letterSpacing: '0.04em', whiteSpace: 'nowrap' }}>{device.sub_license_key}</code>
-                        : <span style={{ color: 'var(--color-text-faint)' }}>—</span>}
-                    </td>
-                    {/* Status */}
-                    <td style={{ padding: '0.75rem', whiteSpace: 'nowrap' }}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', fontWeight: 600, color: deviceStatusColor(device.status) }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: deviceStatusColor(device.status), display: 'inline-block' }} />
-                        {deviceStatusLabel(device.status)}
-                      </span>
-                    </td>
-                    {/* Último acesso */}
-                    <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
-                      {device.last_seen
-                        ? new Date(device.last_seen).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      {/* Último acesso */}
+                      <td style={{ padding: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', fontSize: '0.75rem' }}>
+                        {lastSeenAt
+                          ? isOnline
+                            ? <span style={{ color: 'var(--color-success)', fontWeight: 600 }}>● {minutesAgo === 0 ? 'Agora' : `há ${minutesAgo}min`}</span>
+                            : lastSeenAt.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                          : device.last_seen
+                            ? new Date(device.last_seen).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+                            : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
