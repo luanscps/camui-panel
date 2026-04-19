@@ -1,52 +1,102 @@
 "use client"
 
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import type { FleetDevice, FleetStats } from "./types"
 
-function statusColor(device: FleetDevice) {
+function getStatusVariant(device: FleetDevice): "default" | "secondary" | "destructive" | "outline" {
   if (device.thermal_critical) return "destructive"
   if (device.battery_critical) return "secondary"
   if (device.streaming_now) return "default"
   return "outline"
 }
 
+function getStatusLabel(device: FleetDevice): string {
+  if (device.streaming_now) return "Streaming"
+  if (device.is_online) return "Online"
+  return "Offline"
+}
+
+function StatBox({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
+  return (
+    <div className={`rounded-lg border p-4 text-center ${warn && value > 0 ? "border-red-500 bg-red-50 dark:bg-red-950" : "border-border bg-card"}`}>
+      <p className="text-2xl font-bold">{value}</p>
+      <p className="text-xs text-muted-foreground mt-1">{label}</p>
+    </div>
+  )
+}
+
 export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[]; stats: FleetStats }) {
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-5">
-        <Card><CardHeader><CardTitle>Total</CardTitle></CardHeader><CardContent>{stats.totalDevices}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Online</CardTitle></CardHeader><CardContent>{stats.onlineNow}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Streaming</CardTitle></CardHeader><CardContent>{stats.streamingNow}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Bateria crítica</CardTitle></CardHeader><CardContent>{stats.batteryCritical}</CardContent></Card>
-        <Card><CardHeader><CardTitle>Térmico crítico</CardTitle></CardHeader><CardContent>{stats.thermalCritical}</CardContent></Card>
+      {/* Stats Row */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+        <StatBox label="Total" value={stats.totalDevices} />
+        <StatBox label="Online" value={stats.onlineNow} />
+        <StatBox label="Streaming" value={stats.streamingNow} />
+        <StatBox label="Bateria crítica" value={stats.batteryCritical} warn />
+        <StatBox label="Térmico crítico" value={stats.thermalCritical} warn />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        {devices.map((device) => (
-          <Card key={device.device_id ?? Math.random()}>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>{device.device_name ?? device.device_model ?? "Device"}</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {device.device_brand} {device.device_model} · {device.plan}
-                </p>
-              </div>
-              <Badge variant={statusColor(device)}>
-                {device.streaming_now ? "Streaming" : device.is_online ? "Online" : "Offline"}
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div>Bateria: {device.battery_level ?? "--"}%</div>
-              <div>Rede: {device.network_type ?? "--"} / sinal {device.network_strength ?? "--"}</div>
-              <div>Protocolo: {device.current_protocol ?? "--"}</div>
-              <div>Bitrate: {device.last_bitrate_kbps ?? "--"} kbps</div>
-              <div>Sessões 24h: {device.sessions_last_24h ?? 0}</div>
-              <div>Tempo 24h: {device.stream_seconds_last_24h ?? 0}s</div>
-              <div>Último erro: {device.last_stream_error ?? "nenhum"}</div>
-            </CardContent>
-          </Card>
-        ))}
+      {/* Devices Table */}
+      <div className="rounded-lg border overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-muted/50 text-muted-foreground">
+            <tr>
+              <th className="px-4 py-3 text-left font-medium">Device</th>
+              <th className="px-4 py-3 text-left font-medium">Status</th>
+              <th className="px-4 py-3 text-left font-medium">Bateria</th>
+              <th className="px-4 py-3 text-left font-medium">Rede</th>
+              <th className="px-4 py-3 text-left font-medium">Bitrate</th>
+              <th className="px-4 py-3 text-left font-medium">Sessões 24h</th>
+              <th className="px-4 py-3 text-left font-medium">Último erro</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {devices.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                  Nenhum device encontrado.
+                </td>
+              </tr>
+            )}
+            {devices.map((device) => (
+              <tr key={device.device_id ?? device.sub_license_key ?? Math.random()} className="hover:bg-muted/30 transition-colors">
+                <td className="px-4 py-3">
+                  <p className="font-medium leading-none">{device.device_name ?? device.device_model ?? "—"}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{device.device_brand} · {device.plan}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <Badge variant={getStatusVariant(device)}>{getStatusLabel(device)}</Badge>
+                </td>
+                <td className="px-4 py-3">
+                  {device.battery_level != null ? (
+                    <span className={device.battery_critical ? "text-red-500 font-semibold" : ""}>
+                      {device.battery_level}%{device.is_charging ? " ⚡" : ""}
+                    </span>
+                  ) : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <span>{device.network_type ?? "—"}</span>
+                  {device.network_strength != null && (
+                    <span className="text-muted-foreground ml-1">({device.network_strength}/4)</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  {device.last_bitrate_kbps != null ? `${device.last_bitrate_kbps} kbps` : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <span>{device.sessions_last_24h ?? 0}</span>
+                  <span className="text-muted-foreground ml-1 text-xs">
+                    ({Math.round((device.stream_seconds_last_24h ?? 0) / 60)}min)
+                  </span>
+                </td>
+                <td className="px-4 py-3 max-w-[200px] truncate text-xs text-muted-foreground">
+                  {device.last_stream_error ?? "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   )
