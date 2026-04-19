@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.4"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       device_activations: {
@@ -19,8 +44,12 @@ export type Database = {
           activated_at: string | null
           android_id: string | null
           android_version: string | null
+          app_build_number: number | null
           app_version: string | null
+          battery_level: number | null
+          camera_summary: Json | null
           cameras: Json | null
+          current_protocol: string
           device_brand: string | null
           device_hardware: string | null
           device_id: string
@@ -28,23 +57,41 @@ export type Database = {
           device_name: string | null
           fingerprint: string | null
           id: string
+          is_charging: boolean | null
           last_app_version: string | null
+          last_bitrate_kbps: number | null
+          last_rtmp_url: string | null
           last_seen: string | null
           last_seen_at: string | null
+          last_stream_error: string | null
           license_id: string
+          local_ip: string | null
           mobileapi_device_id: number | null
+          network_strength: number | null
+          network_type: string | null
           phone_image_url: string | null
           phone_specs: Json | null
+          public_ip: string | null
           sdk_int: number | null
           status: string
-          sub_license_key: string | null
+          stream_ended_at: string | null
+          stream_session_count: number
+          stream_started_at: string | null
+          streaming_now: boolean
+          sub_license_key: string
+          thermal_state: string | null
+          total_stream_seconds: number
         }
         Insert: {
           activated_at?: string | null
           android_id?: string | null
           android_version?: string | null
+          app_build_number?: number | null
           app_version?: string | null
+          battery_level?: number | null
+          camera_summary?: Json | null
           cameras?: Json | null
+          current_protocol?: string
           device_brand?: string | null
           device_hardware?: string | null
           device_id: string
@@ -52,23 +99,41 @@ export type Database = {
           device_name?: string | null
           fingerprint?: string | null
           id?: string
+          is_charging?: boolean | null
           last_app_version?: string | null
+          last_bitrate_kbps?: number | null
+          last_rtmp_url?: string | null
           last_seen?: string | null
           last_seen_at?: string | null
+          last_stream_error?: string | null
           license_id: string
+          local_ip?: string | null
           mobileapi_device_id?: number | null
+          network_strength?: number | null
+          network_type?: string | null
           phone_image_url?: string | null
           phone_specs?: Json | null
+          public_ip?: string | null
           sdk_int?: number | null
           status?: string
-          sub_license_key?: string | null
+          stream_ended_at?: string | null
+          stream_session_count?: number
+          stream_started_at?: string | null
+          streaming_now?: boolean
+          sub_license_key: string
+          thermal_state?: string | null
+          total_stream_seconds?: number
         }
         Update: {
           activated_at?: string | null
           android_id?: string | null
           android_version?: string | null
+          app_build_number?: number | null
           app_version?: string | null
+          battery_level?: number | null
+          camera_summary?: Json | null
           cameras?: Json | null
+          current_protocol?: string
           device_brand?: string | null
           device_hardware?: string | null
           device_id?: string
@@ -76,16 +141,30 @@ export type Database = {
           device_name?: string | null
           fingerprint?: string | null
           id?: string
+          is_charging?: boolean | null
           last_app_version?: string | null
+          last_bitrate_kbps?: number | null
+          last_rtmp_url?: string | null
           last_seen?: string | null
           last_seen_at?: string | null
+          last_stream_error?: string | null
           license_id?: string
+          local_ip?: string | null
           mobileapi_device_id?: number | null
+          network_strength?: number | null
+          network_type?: string | null
           phone_image_url?: string | null
           phone_specs?: Json | null
+          public_ip?: string | null
           sdk_int?: number | null
           status?: string
-          sub_license_key?: string | null
+          stream_ended_at?: string | null
+          stream_session_count?: number
+          stream_started_at?: string | null
+          streaming_now?: boolean
+          sub_license_key?: string
+          thermal_state?: string | null
+          total_stream_seconds?: number
         }
         Relationships: [
           {
@@ -151,6 +230,54 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          body: string | null
+          created_at: string
+          device_id: string | null
+          id: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          read?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          device_id?: string | null
+          id?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "device_activations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "admin_users_overview"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       plan_features: {
         Row: {
           created_at: string | null
@@ -160,7 +287,7 @@ export type Database = {
           max_devices: number
           max_resolution: string
           max_rtmp_outputs: number
-          max_stream_minutes: number
+          max_stream_minutes: number | null
           plan: string
           updated_at: string | null
           web_control: boolean
@@ -173,7 +300,7 @@ export type Database = {
           max_devices?: number
           max_resolution?: string
           max_rtmp_outputs?: number
-          max_stream_minutes?: number
+          max_stream_minutes?: number | null
           plan: string
           updated_at?: string | null
           web_control?: boolean
@@ -186,7 +313,7 @@ export type Database = {
           max_devices?: number
           max_resolution?: string
           max_rtmp_outputs?: number
-          max_stream_minutes?: number
+          max_stream_minutes?: number | null
           plan?: string
           updated_at?: string | null
           web_control?: boolean
@@ -225,6 +352,103 @@ export type Database = {
           },
         ]
       }
+      remote_commands: {
+        Row: {
+          command: string
+          created_at: string
+          delivered_at: string | null
+          device_id: string
+          error_message: string | null
+          executed_at: string | null
+          expires_at: string
+          id: string
+          issued_at: string
+          payload: Json | null
+          result: Json | null
+          status: string
+        }
+        Insert: {
+          command: string
+          created_at?: string
+          delivered_at?: string | null
+          device_id: string
+          error_message?: string | null
+          executed_at?: string | null
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          payload?: Json | null
+          result?: Json | null
+          status?: string
+        }
+        Update: {
+          command?: string
+          created_at?: string
+          delivered_at?: string | null
+          device_id?: string
+          error_message?: string | null
+          executed_at?: string | null
+          expires_at?: string
+          id?: string
+          issued_at?: string
+          payload?: Json | null
+          result?: Json | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "remote_commands_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "device_activations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stream_sessions: {
+        Row: {
+          bitrate_kbps: number | null
+          device_id: string
+          duration_sec: number | null
+          ended_at: string | null
+          error_msg: string | null
+          id: string
+          resolution: string | null
+          rtmp_url: string | null
+          started_at: string
+        }
+        Insert: {
+          bitrate_kbps?: number | null
+          device_id: string
+          duration_sec?: number | null
+          ended_at?: string | null
+          error_msg?: string | null
+          id?: string
+          resolution?: string | null
+          rtmp_url?: string | null
+          started_at?: string
+        }
+        Update: {
+          bitrate_kbps?: number | null
+          device_id?: string
+          duration_sec?: number | null
+          ended_at?: string | null
+          error_msg?: string | null
+          id?: string
+          resolution?: string | null
+          rtmp_url?: string | null
+          started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stream_sessions_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "device_activations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       admin_license_stats: {
@@ -257,8 +481,43 @@ export type Database = {
         }
         Relationships: []
       }
+      fleet_dashboard: {
+        Row: {
+          active_devices: number | null
+          last_activity: string | null
+          online_now: number | null
+          streaming_now: number | null
+          suspended_devices: number | null
+          total_devices: number | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "licenses_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "admin_users_overview"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
+      device_heartbeat: {
+        Args: {
+          p_battery_level?: number
+          p_bitrate_kbps?: number
+          p_is_charging?: boolean
+          p_network_strength?: number
+          p_network_type?: string
+          p_rtmp_url?: string
+          p_stream_error?: string
+          p_streaming_now?: boolean
+          p_sub_license_key: string
+          p_thermal_state?: string
+        }
+        Returns: Json
+      }
       is_admin: { Args: never; Returns: boolean }
       validate_license: { Args: { p_device_id: string }; Returns: Json }
     }
@@ -389,6 +648,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
