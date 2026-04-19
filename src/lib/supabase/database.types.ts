@@ -44,8 +44,12 @@ export type Database = {
           activated_at: string | null
           android_id: string | null
           android_version: string | null
+          app_build_number: number | null
           app_version: string | null
+          battery_level: number | null
+          camera_summary: Json | null
           cameras: Json | null
+          current_protocol: string
           device_brand: string | null
           device_hardware: string | null
           device_id: string
@@ -53,28 +57,41 @@ export type Database = {
           device_name: string | null
           fingerprint: string | null
           id: string
+          is_charging: boolean | null
           last_app_version: string | null
+          last_bitrate_kbps: number | null
+          last_rtmp_url: string | null
           last_seen: string | null
           last_seen_at: string | null
+          last_stream_error: string | null
           license_id: string
           local_ip: string | null
           mobileapi_device_id: number | null
+          network_strength: number | null
           network_type: string | null
           phone_image_url: string | null
           phone_specs: Json | null
           public_ip: string | null
           sdk_int: number | null
           status: string
+          stream_ended_at: string | null
+          stream_session_count: number
           stream_started_at: string | null
           streaming_now: boolean
           sub_license_key: string
+          thermal_state: string | null
+          total_stream_seconds: number
         }
         Insert: {
           activated_at?: string | null
           android_id?: string | null
           android_version?: string | null
+          app_build_number?: number | null
           app_version?: string | null
+          battery_level?: number | null
+          camera_summary?: Json | null
           cameras?: Json | null
+          current_protocol?: string
           device_brand?: string | null
           device_hardware?: string | null
           device_id: string
@@ -82,28 +99,41 @@ export type Database = {
           device_name?: string | null
           fingerprint?: string | null
           id?: string
+          is_charging?: boolean | null
           last_app_version?: string | null
+          last_bitrate_kbps?: number | null
+          last_rtmp_url?: string | null
           last_seen?: string | null
           last_seen_at?: string | null
+          last_stream_error?: string | null
           license_id: string
           local_ip?: string | null
           mobileapi_device_id?: number | null
+          network_strength?: number | null
           network_type?: string | null
           phone_image_url?: string | null
           phone_specs?: Json | null
           public_ip?: string | null
           sdk_int?: number | null
           status?: string
+          stream_ended_at?: string | null
+          stream_session_count?: number
           stream_started_at?: string | null
           streaming_now?: boolean
           sub_license_key: string
+          thermal_state?: string | null
+          total_stream_seconds?: number
         }
         Update: {
           activated_at?: string | null
           android_id?: string | null
           android_version?: string | null
+          app_build_number?: number | null
           app_version?: string | null
+          battery_level?: number | null
+          camera_summary?: Json | null
           cameras?: Json | null
+          current_protocol?: string
           device_brand?: string | null
           device_hardware?: string | null
           device_id?: string
@@ -111,21 +141,30 @@ export type Database = {
           device_name?: string | null
           fingerprint?: string | null
           id?: string
+          is_charging?: boolean | null
           last_app_version?: string | null
+          last_bitrate_kbps?: number | null
+          last_rtmp_url?: string | null
           last_seen?: string | null
           last_seen_at?: string | null
+          last_stream_error?: string | null
           license_id?: string
           local_ip?: string | null
           mobileapi_device_id?: number | null
+          network_strength?: number | null
           network_type?: string | null
           phone_image_url?: string | null
           phone_specs?: Json | null
           public_ip?: string | null
           sdk_int?: number | null
           status?: string
+          stream_ended_at?: string | null
+          stream_session_count?: number
           stream_started_at?: string | null
           streaming_now?: boolean
           sub_license_key?: string
+          thermal_state?: string | null
+          total_stream_seconds?: number
         }
         Relationships: [
           {
