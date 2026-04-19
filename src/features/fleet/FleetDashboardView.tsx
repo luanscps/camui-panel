@@ -3,38 +3,61 @@
 import { Badge } from "@/components/ui/badge"
 import type { FleetDevice, FleetStats } from "./types"
 
+// thermal_state pode ser: 'none' | 'light' | 'moderate' | 'serious' | 'critical'
+const THERMAL_CRITICAL = new Set(["serious", "critical"])
+
+function isThermalCritical(device: FleetDevice): boolean {
+  return THERMAL_CRITICAL.has(device.thermal_state ?? "")
+}
+
+function isBatteryCritical(device: FleetDevice): boolean {
+  return device.battery_level !== null && device.battery_level < 20 && !device.is_charging
+}
+
+function isOnline(device: FleetDevice): boolean {
+  if (!device.last_seen) return false
+  return new Date().getTime() - new Date(device.last_seen).getTime() < 5 * 60 * 1000
+}
+
 function getStatusVariant(device: FleetDevice): "default" | "secondary" | "destructive" | "outline" {
-  if (device.thermal_critical) return "destructive"
-  if (device.battery_critical) return "secondary"
+  if (isThermalCritical(device)) return "destructive"
+  if (isBatteryCritical(device)) return "secondary"
   if (device.streaming_now) return "default"
   return "outline"
 }
 
 function getStatusLabel(device: FleetDevice): string {
   if (device.streaming_now) return "Streaming"
-  if (device.is_online) return "Online"
+  if (isOnline(device)) return "Online"
   return "Offline"
 }
 
-function StatBox({ label, value, warn }: { label: string; value: number; warn?: boolean }) {
+function StatBox({ label, value, warn }: { label: string; value: number | null; warn?: boolean }) {
+  const v = value ?? 0
   return (
-    <div className={`rounded-lg border p-4 text-center ${warn && value > 0 ? "border-red-500 bg-red-50 dark:bg-red-950" : "border-border bg-card"}`}>
-      <p className="text-2xl font-bold">{value}</p>
+    <div className={`rounded-lg border p-4 text-center ${
+      warn && v > 0 ? "border-red-500 bg-red-50 dark:bg-red-950" : "border-border bg-card"
+    }`}>
+      <p className="text-2xl font-bold">{v}</p>
       <p className="text-xs text-muted-foreground mt-1">{label}</p>
     </div>
   )
 }
 
 export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[]; stats: FleetStats }) {
+  // calcula batteryCritical e thermalCritical no frontend
+  const batteryCritical = devices.filter(isBatteryCritical).length
+  const thermalCritical = devices.filter(isThermalCritical).length
+
   return (
     <div className="space-y-6">
       {/* Stats Row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-        <StatBox label="Total" value={stats.totalDevices} />
-        <StatBox label="Online" value={stats.onlineNow} />
-        <StatBox label="Streaming" value={stats.streamingNow} />
-        <StatBox label="Bateria crítica" value={stats.batteryCritical} warn />
-        <StatBox label="Térmico crítico" value={stats.thermalCritical} warn />
+        <StatBox label="Total" value={stats.total_devices} />
+        <StatBox label="Online" value={stats.online_now} />
+        <StatBox label="Streaming" value={stats.streaming_now} />
+        <StatBox label="Bateria crítica" value={batteryCritical} warn />
+        <StatBox label="Térmico crítico" value={thermalCritical} warn />
       </div>
 
       {/* Devices Table */}
@@ -47,7 +70,7 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
               <th className="px-4 py-3 text-left font-medium">Bateria</th>
               <th className="px-4 py-3 text-left font-medium">Rede</th>
               <th className="px-4 py-3 text-left font-medium">Bitrate</th>
-              <th className="px-4 py-3 text-left font-medium">Sessões 24h</th>
+              <th className="px-4 py-3 text-left font-medium">Sessões</th>
               <th className="px-4 py-3 text-left font-medium">Último erro</th>
             </tr>
           </thead>
@@ -60,17 +83,19 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
               </tr>
             )}
             {devices.map((device) => (
-              <tr key={device.device_id ?? device.sub_license_key ?? Math.random()} className="hover:bg-muted/30 transition-colors">
+              <tr key={device.device_id} className="hover:bg-muted/30 transition-colors">
                 <td className="px-4 py-3">
                   <p className="font-medium leading-none">{device.device_name ?? device.device_model ?? "—"}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{device.device_brand} · {device.plan}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {device.device_brand ?? "—"} · {device.android_version ?? "—"}
+                  </p>
                 </td>
                 <td className="px-4 py-3">
                   <Badge variant={getStatusVariant(device)}>{getStatusLabel(device)}</Badge>
                 </td>
                 <td className="px-4 py-3">
                   {device.battery_level != null ? (
-                    <span className={device.battery_critical ? "text-red-500 font-semibold" : ""}>
+                    <span className={isBatteryCritical(device) ? "text-red-500 font-semibold" : ""}>
                       {device.battery_level}%{device.is_charging ? " ⚡" : ""}
                     </span>
                   ) : "—"}
@@ -85,9 +110,9 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
                   {device.last_bitrate_kbps != null ? `${device.last_bitrate_kbps} kbps` : "—"}
                 </td>
                 <td className="px-4 py-3">
-                  <span>{device.sessions_last_24h ?? 0}</span>
+                  <span>{device.stream_session_count ?? 0}</span>
                   <span className="text-muted-foreground ml-1 text-xs">
-                    ({Math.round((device.stream_seconds_last_24h ?? 0) / 60)}min)
+                    ({Math.round((device.total_stream_seconds ?? 0) / 60)}min)
                   </span>
                 </td>
                 <td className="px-4 py-3 max-w-[200px] truncate text-xs text-muted-foreground">
