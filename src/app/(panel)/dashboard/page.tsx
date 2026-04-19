@@ -2,6 +2,8 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import { DeviceTable } from './DeviceTable'
+import { getFleetDashboard } from '@/features/fleet/query'
+import type { FleetDevice } from '@/features/fleet/types'
 
 export const dynamic = 'force-dynamic'
 export const metadata = { title: 'Dashboard — CAMUI Panel' }
@@ -14,34 +16,7 @@ type License = {
   max_devices: number; created_at: string
 }
 
-type Device = {
-  id: string
-  license_id: string
-  device_name?:     string | null
-  device_brand?:    string | null
-  device_model?:    string | null
-  android_version?: string | null
-  android_id?:      string | null
-  sub_license_key?: string | null
-  status?:          string | null
-  activated_at:     string
-  last_seen:        string | null
-  streaming_now?:   boolean
-  battery_level?:   number | null
-  thermal_state?:   string | null
-  network_type?:    string | null
-  last_seen_at?:    string | null
-}
-
-type FleetDashboard = {
-  user_id:           string | null
-  total_devices:     number | null
-  active_devices:    number | null
-  suspended_devices: number | null
-  online_now:        number | null
-  streaming_now:     number | null
-  last_activity:     string | null
-}
+const THERMAL_CRITICAL = new Set(['serious', 'critical'])
 
 function greeting(name: string) {
   const h = new Date().getHours()
@@ -55,6 +30,14 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+function isBatteryCritical(device: FleetDevice): boolean {
+  return device.battery_level !== null && device.battery_level < 20 && !device.is_charging
+}
+
+function isThermalCritical(device: FleetDevice): boolean {
+  return THERMAL_CRITICAL.has(device.thermal_state ?? '')
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -66,23 +49,9 @@ export default async function DashboardPage() {
   const { data: license } = await (supabase as any)
     .from('licenses').select('*').eq('user_id', user.id).maybeSingle() as { data: License | null }
 
-  const { data: fleet } = license
-    ? await (supabase as any)
-        .from('fleet_dashboard')
-        .select('*')
-        .eq('user_id', user.id)
-        .maybeSingle() as { data: FleetDashboard | null }
-    : { data: null as FleetDashboard | null }
-
-  const { data: devices } = license
-    ? await (supabase as any)
-        .from('device_activations')
-        .select(`id, device_name, device_brand, device_model, android_version,
-                 android_id, sub_license_key, status, activated_at, last_seen,
-                 last_seen_at, streaming_now, battery_level, thermal_state, network_type`)
-        .eq('license_id', license.id)
-        .order('last_seen', { ascending: false, nullsFirst: false }) as { data: Device[] | null }
-    : { data: [] as Device[] }
+  const fleetData = license ? await getFleetDashboard(user.id) : { devices: [] as FleetDevice[], stats: null }
+  const devices = fleetData.devices
+  const fleet = fleetData.stats
 
   const displayName  = profile?.full_name ?? user.email?.split('@')[0] ?? 'usuário'
   const isPro        = license?.plan === 'PRO'
@@ -90,11 +59,12 @@ export default async function DashboardPage() {
   const expiringSoon = daysLeft !== null && daysLeft <= 7 && daysLeft >= 0
   const isExpired    = daysLeft !== null && daysLeft < 0
 
-  const totalDevices     = fleet?.total_devices     ?? devices?.length ?? 0
-  const activeDevices    = fleet?.active_devices    ?? devices?.filter(d => d.status === 'ACTIVE').length ?? 0
-  const suspendedDevices = fleet?.suspended_devices ?? devices?.filter(d => d.status === 'SUSPENDED').length ?? 0
-  const onlineNow        = fleet?.online_now        ?? 0
-  const streamingNow     = fleet?.streaming_now     ?? devices?.filter(d => d.streaming_now).length ?? 0
+  const activeDevices    = fleet?.active_devices ?? devices.filter(d => d.status === 'ACTIVE').length
+  const suspendedDevices = fleet?.suspended_devices ?? devices.filter(d => d.status === 'SUSPENDED').length
+  const onlineNow        = fleet?.online_now ?? 0
+  const streamingNow     = fleet?.streaming_now ?? devices.filter(d => d.streaming_now).length
+  const batteryCritical  = devices.filter(isBatteryCritical).length
+  const thermalCritical  = devices.filter(isThermalCritical).length
 
   const planFeatures: Record<string, { label: string; included: boolean }[]> = {
     BASIC: [
@@ -106,20 +76,18 @@ export default async function DashboardPage() {
       { label: 'Suporte prioritário',          included: false },
     ],
     PRO: [
-      { label: 'Streaming RTMP básico',         included: true },
-      { label: 'RTMP avançado / multi-stream',  included: true },
-      { label: 'Até 5 dispositivos simultâneos',included: true },
-      { label: 'Suporte prioritário',           included: true },
-      { label: 'Atualizações antecipadas',      included: true },
-      { label: 'Acesso a recursos beta',        included: true },
+      { label: 'Streaming RTMP básico',          included: true },
+      { label: 'RTMP avançado / multi-stream',   included: true },
+      { label: 'Até 5 dispositivos simultâneos', included: true },
+      { label: 'Suporte prioritário',            included: true },
+      { label: 'Atualizações antecipadas',       included: true },
+      { label: 'Acesso a recursos beta',         included: true },
     ],
   }
   const features = planFeatures[license?.plan ?? 'BASIC']
 
   return (
     <main className="camui-content">
-
-      {/* Cabeçalho */}
       <div style={{ marginBottom: '1.75rem' }}>
         <h1 style={{ fontSize: '1.375rem', fontWeight: 700, color: 'var(--color-text)', marginBottom: '0.25rem' }}>
           {greeting(displayName)}
@@ -129,7 +97,6 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Alertas */}
       {expiringSoon && (
         <div style={{ marginBottom: '1.25rem', padding: '0.875rem 1.25rem', background: 'var(--color-warning-bg)', border: '1px solid rgba(150,66,25,0.25)', borderRadius: 'var(--radius-lg)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
@@ -158,7 +125,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Stat Cards */}
       {license && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div className="stat-card">
@@ -187,6 +153,16 @@ export default async function DashboardPage() {
             <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Transmitindo</div>
           </div>
           <div className="stat-card">
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>🔋</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: batteryCritical > 0 ? 'var(--color-error)' : 'var(--color-text-muted)' }}>{batteryCritical}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Bateria crítica</div>
+          </div>
+          <div className="stat-card">
+            <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>🌡️</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: thermalCritical > 0 ? 'var(--color-error)' : 'var(--color-text-muted)' }}>{thermalCritical}</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Térmico crítico</div>
+          </div>
+          <div className="stat-card">
             <div style={{ fontSize: '1.5rem', marginBottom: '0.25rem' }}>
               {isExpired ? '❌' : expiringSoon ? '⏳' : daysLeft === null ? '♾️' : '✅'}
             </div>
@@ -205,7 +181,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Sem licença */}
       {!license && (
         <div className="card" style={{ marginBottom: '1.5rem', textAlign: 'center', padding: '2.5rem 1.5rem' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔑</div>
@@ -215,7 +190,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Licença + features */}
       {license && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
           <div className="card">
@@ -292,7 +266,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Atalhos */}
       <div className="card" style={{ marginBottom: '1.5rem' }}>
         <div className="card-header">
           <div className="card-title">Atalhos</div>
@@ -305,7 +278,6 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      {/* Tabela de dispositivos */}
       <div className="card">
         <div className="card-header">
           <div>
@@ -333,7 +305,7 @@ export default async function DashboardPage() {
             <p>Abra o app CAMSTREAMER-BR no seu Android e faça login para ativar automaticamente.</p>
           </div>
         ) : (
-          <DeviceTable devices={devices ?? []} />
+          <DeviceTable devices={devices} />
         )}
       </div>
     </main>
