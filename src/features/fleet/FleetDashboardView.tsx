@@ -19,7 +19,7 @@ function isOnline(device: FleetDevice): boolean {
   return new Date().getTime() - new Date(device.last_seen).getTime() < 5 * 60 * 1000
 }
 
-function getStatusVariant(device: FleetDevice): "default" | "success" | "destructive" | "warning" | "outline" {
+function getStatusVariant(device: FleetDevice): "default" | "success" | "destructive" | "warning" | "info" | "outline" {
   if (isThermalCritical(device)) return "destructive"
   if (isBatteryCritical(device)) return "warning"
   if (device.streaming_now) return "success"
