@@ -1,21 +1,21 @@
 "use client"
 
-import { useState, useTransition } from "react"
+import { useTransition } from "react"
 import type { FleetDevice } from "./types"
 
 export type SortField = "last_seen" | "activated_at" | "device_name" | "battery_level"
 export type SortDir   = "asc" | "desc"
 
 export interface FleetFilterState {
-  status:  "all" | "active" | "suspended"
-  online:  "all" | "online" | "offline"
+  status:    "all" | "active" | "suspended"
+  online:    "all" | "online" | "offline"
   streaming: "all" | "yes"
-  brand:   string        // "" = todos
-  sort:    SortField
-  dir:     SortDir
+  brand:     string
+  sort:      SortField
+  dir:       SortDir
 }
 
-const DEFAULT: FleetFilterState = {
+export const DEFAULT_FILTERS: FleetFilterState = {
   status:    "all",
   online:    "all",
   streaming: "all",
@@ -75,8 +75,8 @@ export function applyFilters(devices: FleetDevice[], f: FleetFilterState): Fleet
 }
 
 interface Props {
-  devices: FleetDevice[]
-  value:   FleetFilterState
+  devices:  FleetDevice[]
+  value:    FleetFilterState
   onChange: (f: FleetFilterState) => void
 }
 
@@ -94,10 +94,11 @@ export function FleetFilters({ devices, value: f, onChange }: Props) {
   const selClass =
     "h-8 rounded-md border border-input bg-background px-2 text-sm focus:outline-none focus:ring-1 focus:ring-ring"
 
+  const isDirty = JSON.stringify(f) !== JSON.stringify(DEFAULT_FILTERS)
+
   return (
     <div className="flex flex-wrap gap-2 items-center">
 
-      {/* Status */}
       <select className={selClass} value={f.status}
         onChange={e => set("status", e.target.value as FleetFilterState["status"])}>
         <option value="all">Todos os status</option>
@@ -105,7 +106,6 @@ export function FleetFilters({ devices, value: f, onChange }: Props) {
         <option value="suspended">Suspenso</option>
       </select>
 
-      {/* Online */}
       <select className={selClass} value={f.online}
         onChange={e => set("online", e.target.value as FleetFilterState["online"])}>
         <option value="all">Online + Offline</option>
@@ -113,21 +113,18 @@ export function FleetFilters({ devices, value: f, onChange }: Props) {
         <option value="offline">Offline</option>
       </select>
 
-      {/* Streaming */}
       <select className={selClass} value={f.streaming}
         onChange={e => set("streaming", e.target.value as FleetFilterState["streaming"])}>
         <option value="all">Todos</option>
         <option value="yes">Streaming agora</option>
       </select>
 
-      {/* Marca */}
       <select className={selClass} value={f.brand}
         onChange={e => set("brand", e.target.value)}>
         <option value="">Todas as marcas</option>
         {brands.map(b => <option key={b} value={b}>{b}</option>)}
       </select>
 
-      {/* Ordenar por */}
       <select className={selClass} value={f.sort}
         onChange={e => set("sort", e.target.value as SortField)}>
         <option value="last_seen">Último heartbeat</option>
@@ -136,18 +133,16 @@ export function FleetFilters({ devices, value: f, onChange }: Props) {
         <option value="battery_level">Bateria</option>
       </select>
 
-      {/* Direção */}
       <select className={selClass} value={f.dir}
         onChange={e => set("dir", e.target.value as SortDir)}>
         <option value="desc">↓ Decrescente</option>
         <option value="asc">↑ Crescente</option>
       </select>
 
-      {/* Reset */}
-      {JSON.stringify(f) !== JSON.stringify({ ...DEFAULT }) && (
+      {isDirty && (
         <button
           className="h-8 px-3 rounded-md text-sm text-muted-foreground hover:text-foreground border border-dashed border-input hover:border-foreground transition-colors"
-          onClick={() => onChange(DEFAULT)}>
+          onClick={() => onChange(DEFAULT_FILTERS)}>
           Limpar filtros
         </button>
       )}
