@@ -6,8 +6,8 @@ const THERMAL_CRITICAL = new Set(["serious", "critical"])
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000
 
 function isOnline(device: FleetDevice): boolean {
-  if (!device.last_seen) return false
-  return Date.now() - new Date(device.last_seen).getTime() < ONLINE_THRESHOLD_MS
+  if (!device.last_seen_at) return false
+  return Date.now() - new Date(device.last_seen_at).getTime() < ONLINE_THRESHOLD_MS
 }
 
 function isBatteryCritical(device: FleetDevice): boolean {
@@ -24,7 +24,6 @@ export async function getFleetDashboard(userId: string) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // 1. busca o license_id do usuário
   const { data: license, error: licenseError } = await supabase
     .from("licenses")
     .select("id")
@@ -33,26 +32,24 @@ export async function getFleetDashboard(userId: string) {
 
   if (licenseError) throw licenseError
 
-  // 2. busca todos os devices da licença
   const { data, error } = await supabase
     .from("device_activations")
     .select("*")
     .eq("license_id", license.id)
-    .order("last_seen", { ascending: false, nullsFirst: false })
+    .order("last_seen_at", { ascending: false, nullsFirst: false })
 
   if (error) throw error
 
   const devices: FleetDevice[] = data ?? []
 
-  // 3. calcula FleetStats no frontend
   const stats: FleetStats = {
-    total_devices: devices.length,
-    online_now: devices.filter(isOnline).length,
-    streaming_now: devices.filter(d => d.streaming_now).length,
-    active_devices: devices.filter(d => d.status === "active").length,
-    suspended_devices: devices.filter(d => d.status === "suspended").length,
-    last_activity: devices[0]?.last_seen ?? null,
-    user_id: userId,
+    total_devices:      devices.length,
+    online_now:         devices.filter(isOnline).length,
+    streaming_now:      devices.filter(d => d.streaming_now).length,
+    active_devices:     devices.filter(d => d.status === "ACTIVE").length,
+    suspended_devices:  devices.filter(d => d.status === "SUSPENDED").length,
+    last_activity:      devices[0]?.last_seen_at ?? null,
+    user_id:            userId,
   }
 
   return { devices, stats }

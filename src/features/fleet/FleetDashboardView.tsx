@@ -6,7 +6,6 @@ import { FleetFilters, applyFilters, DEFAULT_FILTERS } from "./FleetFilters"
 import type { FleetDevice, FleetStats } from "./types"
 import type { FleetFilterState } from "./FleetFilters"
 
-// thermal_state: 'none' | 'light' | 'moderate' | 'serious' | 'critical'
 const THERMAL_CRITICAL = new Set(["serious", "critical"])
 
 function isThermalCritical(device: FleetDevice): boolean {
@@ -18,8 +17,8 @@ function isBatteryCritical(device: FleetDevice): boolean {
 }
 
 function isOnline(device: FleetDevice): boolean {
-  if (!device.last_seen) return false
-  return Date.now() - new Date(device.last_seen).getTime() < 5 * 60 * 1000
+  if (!device.last_seen_at) return false
+  return Date.now() - new Date(device.last_seen_at).getTime() < 5 * 60 * 1000
 }
 
 function getStatusVariant(device: FleetDevice): "default" | "success" | "destructive" | "warning" | "outline" {
@@ -48,18 +47,28 @@ function StatBox({ label, value, warn }: { label: string; value: number | null; 
   )
 }
 
+function formatLastSeen(ts: string | null): string {
+  if (!ts) return "—"
+  const diff = Date.now() - new Date(ts).getTime()
+  const min  = Math.floor(diff / 60000)
+  if (min < 1)   return "agora"
+  if (min < 60)  return `${min}min atrás`
+  const h = Math.floor(min / 60)
+  if (h < 24)    return `${h}h atrás`
+  return `${Math.floor(h / 24)}d atrás`
+}
+
 export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[]; stats: FleetStats }) {
   const [filters, setFilters] = useState<FleetFilterState>(DEFAULT_FILTERS)
 
   const filtered = applyFilters(devices, filters)
-
   const batteryCritical = devices.filter(isBatteryCritical).length
   const thermalCritical = devices.filter(isThermalCritical).length
 
   return (
     <div className="space-y-6">
 
-      {/* Stats Row — sempre sobre o total real, nao o filtrado */}
+      {/* Stats — sempre sobre o total real */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <StatBox label="Total"           value={stats.total_devices} />
         <StatBox label="Online"          value={stats.online_now} />
@@ -71,7 +80,6 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
       {/* Filtros */}
       <FleetFilters devices={devices} value={filters} onChange={setFilters} />
 
-      {/* Contador de resultados */}
       {filtered.length !== devices.length && (
         <p className="text-sm text-muted-foreground">
           Exibindo {filtered.length} de {devices.length} devices
@@ -89,7 +97,7 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
               <th className="px-4 py-3 text-left font-medium">Rede</th>
               <th className="px-4 py-3 text-left font-medium">Bitrate</th>
               <th className="px-4 py-3 text-left font-medium">Sessões</th>
-              <th className="px-4 py-3 text-left font-medium">Último erro</th>
+              <th className="px-4 py-3 text-left font-medium">Último heartbeat</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -133,8 +141,8 @@ export function FleetDashboardView({ devices, stats }: { devices: FleetDevice[];
                     ({Math.round((device.total_stream_seconds ?? 0) / 60)}min)
                   </span>
                 </td>
-                <td className="px-4 py-3 max-w-[200px] truncate text-xs text-muted-foreground">
-                  {device.last_stream_error ?? "—"}
+                <td className="px-4 py-3 text-xs text-muted-foreground">
+                  {formatLastSeen(device.last_seen_at)}
                 </td>
               </tr>
             ))}

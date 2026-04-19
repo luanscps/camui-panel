@@ -3,7 +3,7 @@
 import { useTransition } from "react"
 import type { FleetDevice } from "./types"
 
-export type SortField = "last_seen" | "activated_at" | "device_name" | "battery_level"
+export type SortField = "last_seen_at" | "activated_at" | "device_name" | "battery_level"
 export type SortDir   = "asc" | "desc"
 
 export interface FleetFilterState {
@@ -20,21 +20,21 @@ export const DEFAULT_FILTERS: FleetFilterState = {
   online:    "all",
   streaming: "all",
   brand:     "",
-  sort:      "last_seen",
+  sort:      "last_seen_at",
   dir:       "desc",
 }
 
 const ONLINE_MS = 5 * 60 * 1000
 function isOnline(d: FleetDevice) {
-  if (!d.last_seen) return false
-  return Date.now() - new Date(d.last_seen).getTime() < ONLINE_MS
+  if (!d.last_seen_at) return false
+  return Date.now() - new Date(d.last_seen_at).getTime() < ONLINE_MS
 }
 
 export function applyFilters(devices: FleetDevice[], f: FleetFilterState): FleetDevice[] {
   let result = devices
 
   if (f.status !== "all")
-    result = result.filter(d => (d.status ?? "").toLowerCase() === f.status)
+    result = result.filter(d => (d.status ?? "").toUpperCase() === f.status.toUpperCase())
 
   if (f.online === "online")  result = result.filter(isOnline)
   if (f.online === "offline") result = result.filter(d => !isOnline(d))
@@ -50,9 +50,9 @@ export function applyFilters(devices: FleetDevice[], f: FleetFilterState): Fleet
     let va: string | number | null = null
     let vb: string | number | null = null
 
-    if (f.sort === "last_seen") {
-      va = a.last_seen ?? ""
-      vb = b.last_seen ?? ""
+    if (f.sort === "last_seen_at") {
+      va = a.last_seen_at ?? ""
+      vb = b.last_seen_at ?? ""
     } else if (f.sort === "activated_at") {
       va = a.activated_at ?? ""
       vb = b.activated_at ?? ""
@@ -127,7 +127,7 @@ export function FleetFilters({ devices, value: f, onChange }: Props) {
 
       <select className={selClass} value={f.sort}
         onChange={e => set("sort", e.target.value as SortField)}>
-        <option value="last_seen">Último heartbeat</option>
+        <option value="last_seen_at">Último heartbeat</option>
         <option value="activated_at">Data de ativação</option>
         <option value="device_name">Nome</option>
         <option value="battery_level">Bateria</option>
