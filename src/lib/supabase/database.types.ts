@@ -67,7 +67,7 @@ export type Database = {
           status: string
           stream_started_at: string | null
           streaming_now: boolean
-          sub_license_key: string | null
+          sub_license_key: string
         }
         Insert: {
           activated_at?: string | null
@@ -96,7 +96,7 @@ export type Database = {
           status?: string
           stream_started_at?: string | null
           streaming_now?: boolean
-          sub_license_key?: string | null
+          sub_license_key: string
         }
         Update: {
           activated_at?: string | null
@@ -125,7 +125,7 @@ export type Database = {
           status?: string
           stream_started_at?: string | null
           streaming_now?: boolean
-          sub_license_key?: string | null
+          sub_license_key?: string
         }
         Relationships: [
           {
