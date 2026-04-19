@@ -1,6 +1,8 @@
 import type { Config } from 'tailwindcss'
+import animate from 'tailwindcss-animate'
 
 const config: Config = {
+  darkMode: ['class'],
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -8,26 +10,14 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      colors: {
-        brand: {
-          50:  '#f0fafb',
-          100: '#d9f1f4',
-          200: '#b3e3e9',
-          300: '#7dcdd6',
-          400: '#42aeba',
-          500: '#2793a0',
-          600: '#01696f',
-          700: '#0c4e54',
-          800: '#0f3638',
-          900: '#112f31',
-        },
-      },
-      fontFamily: {
-        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+      borderRadius: {
+        lg: '0.75rem',
+        md: '0.5rem',
+        sm: '0.375rem',
       },
     },
   },
-  plugins: [],
+  plugins: [animate],
 }
 
 export default config
