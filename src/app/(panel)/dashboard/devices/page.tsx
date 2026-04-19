@@ -1,10 +1,21 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
+import DeviceActions from './DeviceActions'
 
 export const metadata = { title: 'Dispositivos — CAMUI Panel' }
 
 type BatterySpec = { type?: string; charging?: string } | string | null
+
+type CameraInfo = {
+  id:                string
+  facing:            string
+  label?:            string
+  max_resolution?:   string
+  max_fps?:          number
+  ois_supported?:    boolean
+  focal_lengths_mm?: number[]
+}
 
 type DeviceRow = {
   id: string
@@ -12,10 +23,13 @@ type DeviceRow = {
   device_brand: string | null
   device_model: string | null
   android_version: string | null
+  app_version: string | null
+  last_app_version: string | null
   status: string
   last_seen_at: string | null
   activated_at: string | null
   phone_image_url: string | null
+  cameras: CameraInfo[] | null
   phone_specs: {
     display?: string | null
     camera?: string | null
@@ -36,6 +50,12 @@ function batteryLabel(battery: BatterySpec): string | null {
   return null
 }
 
+function facingLabel(facing: string) {
+  if (facing === 'back')  return 'Traseira'
+  if (facing === 'front') return 'Frontal'
+  return facing
+}
+
 export default async function DevicesPage() {
   const supabase = (await createClient()) as any
   const { data: { user } } = await supabase.auth.getUser()
@@ -49,7 +69,7 @@ export default async function DevicesPage() {
 
   const { data: devices } = await supabase
     .from('device_activations')
-    .select('id, device_name, device_brand, device_model, android_version, status, last_seen_at, activated_at, phone_image_url, phone_specs')
+    .select('id, device_name, device_brand, device_model, android_version, app_version, last_app_version, status, last_seen_at, activated_at, phone_image_url, phone_specs, cameras')
     .eq('license_id', licData?.id)
     .order('activated_at', { ascending: false }) as { data: DeviceRow[] | null }
 
@@ -64,6 +84,14 @@ export default async function DevicesPage() {
     border: '1px solid var(--color-border)',
     color: 'var(--color-text-muted)',
     whiteSpace: 'nowrap' as const,
+  }
+
+  const appChipStyle = {
+    ...chipStyle,
+    background: 'rgba(1,105,111,0.08)',
+    color: 'var(--color-primary)',
+    border: '1px solid rgba(1,105,111,0.2)',
+    fontWeight: 600,
   }
 
   return (
@@ -84,7 +112,7 @@ export default async function DevicesPage() {
           </p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '1.25rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '1.25rem' }}>
           {devices.map(dev => {
             const lastSeen    = dev.last_seen_at ? new Date(dev.last_seen_at) : null
             const minutesAgo  = lastSeen ? Math.floor((Date.now() - lastSeen.getTime()) / 60000) : null
@@ -92,9 +120,12 @@ export default async function DevicesPage() {
             const statusColor = dev.status === 'ACTIVE' ? 'var(--color-success)' : dev.status === 'SUSPENDED' ? 'var(--color-warning)' : 'var(--color-error)'
             const displayName = dev.device_name ?? [dev.device_brand, dev.device_model].filter(Boolean).join(' ') ?? 'Dispositivo'
             const battery     = batteryLabel(dev.phone_specs?.battery ?? null)
+            const cameras     = Array.isArray(dev.cameras) ? dev.cameras : []
 
             return (
               <div key={dev.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+
+                {/* Imagem do dispositivo */}
                 <div style={{ background: 'var(--color-surface-offset)', display: 'flex', alignItems: 'center', justifyContent: 'center', height: 180, position: 'relative' }}>
                   {dev.phone_image_url ? (
                     <Image
@@ -117,6 +148,8 @@ export default async function DevicesPage() {
                     {isOnline ? '● Online' : 'Offline'}
                   </span>
                 </div>
+
+                {/* Corpo do card */}
                 <div style={{ padding: '1rem 1.25rem' }}>
                   <div style={{ fontWeight: 700, fontSize: '0.9375rem', marginBottom: '0.25rem' }}>{displayName}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
@@ -124,6 +157,23 @@ export default async function DevicesPage() {
                     {dev.android_version && dev.device_brand ? '  ·  ' : ''}
                     {dev.device_brand ?? ''}
                   </div>
+
+                  {/* Versão do app */}
+                  {dev.app_version && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '0.6rem', flexWrap: 'wrap' }}>
+                      <span style={appChipStyle}>📦 App v{dev.app_version}</span>
+                      {dev.last_app_version && (
+                        <span
+                          style={{ ...chipStyle, fontSize: '0.65rem' }}
+                          title={`Versão anterior: ${dev.last_app_version}`}
+                        >
+                          anterior: v{dev.last_app_version}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Specs do telefone */}
                   {dev.phone_specs && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginBottom: '0.75rem' }}>
                       {dev.phone_specs.ram     && <span style={chipStyle}>💾 {dev.phone_specs.ram}</span>}
@@ -133,14 +183,66 @@ export default async function DevicesPage() {
                       {dev.phone_specs.chipset && <span style={chipStyle}>⚡ {dev.phone_specs.chipset}</span>}
                     </div>
                   )}
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: '0.78rem', fontWeight: 700, color: statusColor }}>{dev.status}</span>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                      {lastSeen
-                        ? isOnline ? 'Agora'
-                        : lastSeen.toLocaleDateString('pt-BR')
-                        : dev.activated_at ? new Date(dev.activated_at).toLocaleDateString('pt-BR') : '—'}
-                    </span>
+
+                  {/* Câmeras do dispositivo */}
+                  {cameras.length > 0 && (
+                    <div style={{ marginBottom: '0.75rem' }}>
+                      <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
+                        Câmeras ({cameras.length})
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                        {cameras.map((cam, i) => (
+                          <div
+                            key={cam.id ?? i}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.5rem',
+                              padding: '0.3rem 0.6rem',
+                              borderRadius: 'var(--radius-sm)',
+                              background: 'var(--color-surface-offset)',
+                              border: '1px solid var(--color-border)',
+                              fontSize: '0.72rem',
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <span style={{ fontWeight: 600, color: 'var(--color-text)', minWidth: 60 }}>
+                              {cam.facing === 'back' ? '🔭' : '🤳'} {facingLabel(cam.facing)}
+                            </span>
+                            {cam.max_resolution && (
+                              <span style={{ color: 'var(--color-text-muted)' }}>{cam.max_resolution}</span>
+                            )}
+                            {cam.max_fps && (
+                              <span style={{ color: 'var(--color-text-muted)' }}>{cam.max_fps}fps</span>
+                            )}
+                            {cam.ois_supported && (
+                              <span style={{ color: 'var(--color-primary)', fontWeight: 600 }}>OIS</span>
+                            )}
+                            {cam.focal_lengths_mm && cam.focal_lengths_mm.length > 0 && (
+                              <span style={{ color: 'var(--color-text-muted)' }}>
+                                {cam.focal_lengths_mm.map(f => `${f}mm`).join(' / ')}
+                              </span>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Status + ações */}
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem', marginTop: '0.25rem' }}>
+                    <div>
+                      <span style={{ fontSize: '0.78rem', fontWeight: 700, color: statusColor }}>{dev.status}</span>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>
+                        {lastSeen
+                          ? isOnline ? 'Agora'
+                          : lastSeen.toLocaleDateString('pt-BR')
+                          : dev.activated_at ? new Date(dev.activated_at).toLocaleDateString('pt-BR') : '—'}
+                      </div>
+                    </div>
+
+                    {/* Botões Suspender / Reativar / Revogar */}
+                    <DeviceActions activationId={dev.id} status={dev.status} />
                   </div>
                 </div>
               </div>
