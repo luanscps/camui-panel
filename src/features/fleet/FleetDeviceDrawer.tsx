@@ -3,9 +3,10 @@
 import { useEffect, useState, useTransition } from "react"
 import { Badge } from "@/components/ui/badge"
 import { FleetDeviceTimeline } from "./FleetDeviceTimeline"
+import { RemoteCommandPanel } from "./RemoteCommandPanel"
 import type { FleetDevice, StreamSession } from "./types"
 
-type Tab = "geral" | "stream" | "cameras"
+type Tab = "geral" | "stream" | "cameras" | "controle"
 
 const ONLINE_MS = 5 * 60 * 1000
 function isOnline(d: FleetDevice) {
@@ -68,7 +69,6 @@ export function FleetDeviceDrawer({ device, onClose, onLoadTimeline }: Props) {
   const online    = isOnline(device)
   const streaming = device.streaming_now
 
-  // Parse cameras jsonb
   type CameraEntry = { facing?: string; max_resolution?: string; lens_facing?: string }
   let cameras: CameraEntry[] = []
   try {
@@ -118,10 +118,11 @@ export function FleetDeviceDrawer({ device, onClose, onLoadTimeline }: Props) {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b">
-          <button className={tabClass("geral")}   onClick={() => setTab("geral")}>Geral</button>
-          <button className={tabClass("stream")}  onClick={handleTabStream}>Stream</button>
-          <button className={tabClass("cameras")} onClick={() => setTab("cameras")}>Câmeras</button>
+        <div className="flex border-b overflow-x-auto">
+          <button className={tabClass("geral")}    onClick={() => setTab("geral")}>Geral</button>
+          <button className={tabClass("stream")}   onClick={handleTabStream}>Stream</button>
+          <button className={tabClass("cameras")}  onClick={() => setTab("cameras")}>Câmeras</button>
+          <button className={tabClass("controle")} onClick={() => setTab("controle")}>Controle</button>
         </div>
 
         {/* Content */}
@@ -178,7 +179,6 @@ export function FleetDeviceDrawer({ device, onClose, onLoadTimeline }: Props) {
                   } />
                 )}
               </div>
-
               <div>
                 <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                   Histórico de sessões
@@ -209,6 +209,10 @@ export function FleetDeviceDrawer({ device, onClose, onLoadTimeline }: Props) {
                 ))
               )}
             </div>
+          )}
+
+          {tab === "controle" && (
+            <RemoteCommandPanel device={device} />
           )}
         </div>
       </div>

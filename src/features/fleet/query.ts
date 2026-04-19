@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database"
-import type { FleetDevice, FleetStats, StreamSession } from "./types"
+import type { FleetDevice, FleetStats, StreamSession, RemoteCommandRow } from "./types"
 
 const THERMAL_CRITICAL = new Set(["serious", "critical"])
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000
@@ -70,6 +70,59 @@ export async function getDeviceTimeline(
     .select("*")
     .eq("device_id", deviceId)
     .order("started_at", { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data ?? []
+}
+
+// ─── P2: Remote Commands ──────────────────────────────────────────────────────
+
+export type RemoteCommandName =
+  | "start_stream"
+  | "stop_stream"
+  | "switch_camera"
+  | "request_status"
+  | "set_bitrate"
+  | "set_resolution"
+
+export async function sendRemoteCommand(
+  deviceId: string,
+  command: RemoteCommandName,
+  payload?: Record<string, string>
+): Promise<RemoteCommandRow> {
+  const supabase = makeSupabase()
+
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString() // expira em 5 min
+
+  const { data, error } = await supabase
+    .from("remote_commands")
+    .insert({
+      device_id:  deviceId,
+      command,
+      payload:    payload ?? null,
+      status:     "pending",
+      issued_at:  new Date().toISOString(),
+      expires_at: expiresAt,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data
+}
+
+export async function getRecentCommands(
+  deviceId: string,
+  limit = 10
+): Promise<RemoteCommandRow[]> {
+  const supabase = makeSupabase()
+
+  const { data, error } = await supabase
+    .from("remote_commands")
+    .select("*")
+    .eq("device_id", deviceId)
+    .order("issued_at", { ascending: false })
     .limit(limit)
 
   if (error) throw error
