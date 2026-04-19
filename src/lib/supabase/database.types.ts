@@ -358,9 +358,13 @@ export type Database = {
           created_at: string
           delivered_at: string | null
           device_id: string
+          error_message: string | null
           executed_at: string | null
+          expires_at: string
           id: string
+          issued_at: string
           payload: Json | null
+          result: Json | null
           status: string
         }
         Insert: {
@@ -368,9 +372,13 @@ export type Database = {
           created_at?: string
           delivered_at?: string | null
           device_id: string
+          error_message?: string | null
           executed_at?: string | null
+          expires_at?: string
           id?: string
+          issued_at?: string
           payload?: Json | null
+          result?: Json | null
           status?: string
         }
         Update: {
@@ -378,9 +386,13 @@ export type Database = {
           created_at?: string
           delivered_at?: string | null
           device_id?: string
+          error_message?: string | null
           executed_at?: string | null
+          expires_at?: string
           id?: string
+          issued_at?: string
           payload?: Json | null
+          result?: Json | null
           status?: string
         }
         Relationships: [
@@ -493,11 +505,16 @@ export type Database = {
     Functions: {
       device_heartbeat: {
         Args: {
-          p_app_version?: string
-          p_local_ip?: string
+          p_battery_level?: number
+          p_bitrate_kbps?: number
+          p_is_charging?: boolean
+          p_network_strength?: number
           p_network_type?: string
+          p_rtmp_url?: string
+          p_stream_error?: string
           p_streaming_now?: boolean
           p_sub_license_key: string
+          p_thermal_state?: string
         }
         Returns: Json
       }
