@@ -1,6 +1,6 @@
 import { createClient } from "@supabase/supabase-js"
 import type { Database } from "@/types/database"
-import type { FleetDevice, FleetStats } from "./types"
+import type { FleetDevice, FleetStats, StreamSession } from "./types"
 
 const THERMAL_CRITICAL = new Set(["serious", "critical"])
 const ONLINE_THRESHOLD_MS = 5 * 60 * 1000
@@ -18,11 +18,15 @@ function isThermalCritical(device: FleetDevice): boolean {
   return THERMAL_CRITICAL.has(device.thermal_state ?? "")
 }
 
-export async function getFleetDashboard(userId: string) {
-  const supabase = createClient<Database>(
+function makeSupabase() {
+  return createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+}
+
+export async function getFleetDashboard(userId: string) {
+  const supabase = makeSupabase()
 
   const { data: license, error: licenseError } = await supabase
     .from("licenses")
@@ -43,14 +47,31 @@ export async function getFleetDashboard(userId: string) {
   const devices: FleetDevice[] = data ?? []
 
   const stats: FleetStats = {
-    total_devices:      devices.length,
-    online_now:         devices.filter(isOnline).length,
-    streaming_now:      devices.filter(d => d.streaming_now).length,
-    active_devices:     devices.filter(d => d.status === "ACTIVE").length,
-    suspended_devices:  devices.filter(d => d.status === "SUSPENDED").length,
-    last_activity:      devices[0]?.last_seen_at ?? null,
-    user_id:            userId,
+    total_devices:     devices.length,
+    online_now:        devices.filter(isOnline).length,
+    streaming_now:     devices.filter(d => d.streaming_now).length,
+    active_devices:    devices.filter(d => d.status === "ACTIVE").length,
+    suspended_devices: devices.filter(d => d.status === "SUSPENDED").length,
+    last_activity:     devices[0]?.last_seen_at ?? null,
+    user_id:           userId,
   }
 
   return { devices, stats }
+}
+
+export async function getDeviceTimeline(
+  deviceId: string,
+  limit = 20
+): Promise<StreamSession[]> {
+  const supabase = makeSupabase()
+
+  const { data, error } = await supabase
+    .from("stream_sessions")
+    .select("*")
+    .eq("device_id", deviceId)
+    .order("started_at", { ascending: false })
+    .limit(limit)
+
+  if (error) throw error
+  return data ?? []
 }
