@@ -503,6 +503,14 @@ export type Database = {
       }
     }
     Functions: {
+      create_default_license: {
+        Args: {
+          p_user_id: string
+          p_plan?: string
+          p_max_devices?: number
+        }
+        Returns: Json
+      }
       device_heartbeat: {
         Args: {
           p_battery_level?: number
