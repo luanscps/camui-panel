@@ -17,6 +17,7 @@ type License = {
 }
 
 const THERMAL_CRITICAL = new Set(['serious', 'critical'])
+const ONLINE_THRESHOLD_MS = 5 * 60 * 1000
 
 function greeting(name: string) {
   const h = new Date().getHours()
@@ -30,8 +31,17 @@ function daysUntil(dateStr: string | null): number | null {
   return Math.ceil(diff / (1000 * 60 * 60 * 24))
 }
 
+// ── Calculado diretamente dos devices (não depende da view fleet_dashboard) ──
+function isOnline(device: FleetDevice): boolean {
+  if (!device.last_seen_at) return false
+  return Date.now() - new Date(device.last_seen_at).getTime() < ONLINE_THRESHOLD_MS
+}
+
 function isBatteryCritical(device: FleetDevice): boolean {
-  return device.battery_level !== null && device.battery_level < 20 && !device.is_charging
+  return device.battery_level !== null &&
+    device.battery_level !== undefined &&
+    device.battery_level < 20 &&
+    !device.is_charging
 }
 
 function isThermalCritical(device: FleetDevice): boolean {
@@ -49,22 +59,25 @@ export default async function DashboardPage() {
   const { data: license } = await (supabase as any)
     .from('licenses').select('*').eq('user_id', user.id).maybeSingle() as { data: License | null }
 
-  const fleetData = license ? await getFleetDashboard(user.id) : { devices: [] as FleetDevice[], stats: null }
+  const fleetData = license
+    ? await getFleetDashboard(user.id)
+    : { devices: [] as FleetDevice[], stats: null }
+
   const devices = fleetData.devices
-  const fleet = fleetData.stats
+
+  // ── Stats calculados do array real de devices ──────────────────────────────
+  const onlineNow        = devices.filter(isOnline).length
+  const streamingNow     = devices.filter(d => d.streaming_now).length
+  const activeDevices    = devices.filter(d => d.status === 'ACTIVE').length
+  const suspendedDevices = devices.filter(d => d.status === 'SUSPENDED').length
+  const batteryCritical  = devices.filter(isBatteryCritical).length
+  const thermalCritical  = devices.filter(isThermalCritical).length
 
   const displayName  = profile?.full_name ?? user.email?.split('@')[0] ?? 'usuário'
   const isPro        = license?.plan === 'PRO'
   const daysLeft     = daysUntil(license?.expires_at ?? null)
   const expiringSoon = daysLeft !== null && daysLeft <= 7 && daysLeft >= 0
   const isExpired    = daysLeft !== null && daysLeft < 0
-
-  const activeDevices    = fleet?.active_devices ?? devices.filter(d => d.status === 'ACTIVE').length
-  const suspendedDevices = fleet?.suspended_devices ?? devices.filter(d => d.status === 'SUSPENDED').length
-  const onlineNow        = fleet?.online_now ?? 0
-  const streamingNow     = fleet?.streaming_now ?? devices.filter(d => d.streaming_now).length
-  const batteryCritical  = devices.filter(isBatteryCritical).length
-  const thermalCritical  = devices.filter(isThermalCritical).length
 
   const planFeatures: Record<string, { label: string; included: boolean }[]> = {
     BASIC: [
