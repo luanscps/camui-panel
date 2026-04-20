@@ -4,7 +4,7 @@ import { useState, useTransition } from "react"
 import { sendRemoteCommand, getRecentCommands, type RemoteCommandName } from "./query"
 import type { FleetDevice, RemoteCommandRow } from "./types"
 
-const BITRATES  = ["500", "1000", "2500", "4000", "6000"]
+const BITRATES = ["500", "1000", "2500", "4000", "6000"]
 const RESOLUTIONS = ["1280x720", "1920x1080", "2560x1440"]
 
 const STATUS_LABEL: Record<string, string> = {
@@ -14,15 +14,32 @@ const STATUS_LABEL: Record<string, string> = {
   failed:    "❌ Falhou",
 }
 
-const STATUS_CLASS: Record<string, string> = {
-  pending:   "text-yellow-600 dark:text-yellow-400",
-  delivered: "text-blue-600 dark:text-blue-400",
-  executed:  "text-green-600 dark:text-green-400",
-  failed:    "text-red-600 dark:text-red-400",
+const STATUS_COLOR: Record<string, string> = {
+  pending:   "var(--color-warning, #d97706)",
+  delivered: "var(--color-info, #2563eb)",
+  executed:  "var(--color-success, #16a34a)",
+  failed:    "var(--color-error, #ef4444)",
 }
 
 function formatIssuedAt(ts: string): string {
   return new Date(ts).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" })
+}
+
+const sectionLabel: React.CSSProperties = {
+  fontSize: "0.75rem",
+  fontWeight: 600,
+  color: "var(--color-text-muted)",
+  textTransform: "uppercase",
+  letterSpacing: "0.08em",
+}
+
+const selectStyle: React.CSSProperties = {
+  borderRadius: "var(--radius-md, 6px)",
+  border: "1px solid var(--color-border)",
+  background: "var(--color-bg)",
+  color: "var(--color-text)",
+  padding: "0.375rem 0.75rem",
+  fontSize: "0.875rem",
 }
 
 interface Props {
@@ -30,13 +47,13 @@ interface Props {
 }
 
 export function RemoteCommandPanel({ device }: Props) {
-  const [bitrate, setBitrate]       = useState("2500")
+  const [bitrate, setBitrate] = useState("2500")
   const [resolution, setResolution] = useState("1920x1080")
-  const [history, setHistory]       = useState<RemoteCommandRow[]>([])
+  const [history, setHistory] = useState<RemoteCommandRow[]>([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
-  const [sending, setSending]       = useState<string | null>(null)
-  const [error, setError]           = useState<string | null>(null)
-  const [, startTransition]         = useTransition()
+  const [sending, setSending] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [, startTransition] = useTransition()
 
   const online = device.last_seen_at
     ? Date.now() - new Date(device.last_seen_at).getTime() < 5 * 60 * 1000
@@ -47,7 +64,7 @@ export function RemoteCommandPanel({ device }: Props) {
     setSending(command)
     try {
       const row = await sendRemoteCommand(device.id, command, payload)
-      setHistory(prev => [row, ...prev])
+      setHistory((prev) => [row, ...prev])
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao enviar comando")
     } finally {
@@ -59,52 +76,68 @@ export function RemoteCommandPanel({ device }: Props) {
     if (historyLoaded) return
     setHistoryLoaded(true)
     startTransition(() => {
-      getRecentCommands(device.id).then(rows => setHistory(rows))
+      getRecentCommands(device.id).then((rows) => setHistory(rows))
     })
   }
 
-  const btnBase = "rounded-md px-3 py-2 text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-  const btnPrimary = `${btnBase} bg-foreground text-background hover:opacity-80`
-  const btnOutline = `${btnBase} border border-border hover:bg-muted`
-  const btnRed     = `${btnBase} bg-red-600 text-white hover:bg-red-700`
-  const btnGreen   = `${btnBase} bg-green-600 text-white hover:bg-green-700`
+  function btn(bg: string, color: string, extraDisabled = false): React.CSSProperties {
+    return {
+      borderRadius: "var(--radius-md, 6px)",
+      padding: "0.375rem 0.75rem",
+      fontSize: "0.875rem",
+      fontWeight: 500,
+      cursor: sending || extraDisabled ? "not-allowed" : "pointer",
+      opacity: sending || extraDisabled ? 0.4 : 1,
+      transition: "opacity 0.15s",
+      border: bg === "outline" ? "1px solid var(--color-border)" : "none",
+      background: bg === "outline" ? "transparent" : bg,
+      color,
+    }
+  }
 
   return (
-    <div className="space-y-5">
+    <div style={{ display: "flex", flexDirection: "column", gap: "1.25rem" }}>
 
       {!online && (
-        <div className="rounded-md bg-yellow-50 dark:bg-yellow-950/40 border border-yellow-300 px-4 py-3 text-sm text-yellow-800 dark:text-yellow-300">
+        <div style={{
+          borderRadius: "var(--radius-md, 6px)",
+          background: "var(--color-warning-subtle, rgba(217,119,6,0.08))",
+          border: "1px solid var(--color-warning, #d97706)",
+          padding: "0.75rem 1rem",
+          fontSize: "0.875rem",
+          color: "var(--color-warning, #d97706)",
+        }}>
           ⚠️ Device offline — comandos serão enfileirados e executados quando reconectar.
         </div>
       )}
 
-      {/* Stream control */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stream</p>
-        <div className="flex gap-2 flex-wrap">
+      {/* Stream */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <p style={sectionLabel}>Stream</p>
+        <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
           <button
-            className={btnGreen}
-            disabled={!!sending || device.streaming_now}
+            style={btn("var(--color-success, #16a34a)", "#fff", !!device.streaming_now)}
+            disabled={!!sending || !!device.streaming_now}
             onClick={() => send("start_stream")}
           >
             {sending === "start_stream" ? "Enviando…" : "▶ Start stream"}
           </button>
           <button
-            className={btnRed}
+            style={btn("var(--color-error, #ef4444)", "#fff", !device.streaming_now)}
             disabled={!!sending || !device.streaming_now}
             onClick={() => send("stop_stream")}
           >
             {sending === "stop_stream" ? "Enviando…" : "■ Stop stream"}
           </button>
           <button
-            className={btnOutline}
+            style={btn("outline", "var(--color-text)")}
             disabled={!!sending}
             onClick={() => send("switch_camera")}
           >
             {sending === "switch_camera" ? "Enviando…" : "🔄 Switch câmera"}
           </button>
           <button
-            className={btnOutline}
+            style={btn("outline", "var(--color-text)")}
             disabled={!!sending}
             onClick={() => send("request_status")}
           >
@@ -114,20 +147,14 @@ export function RemoteCommandPanel({ device }: Props) {
       </div>
 
       {/* Bitrate */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Bitrate</p>
-        <div className="flex gap-2 items-center flex-wrap">
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={bitrate}
-            onChange={e => setBitrate(e.target.value)}
-          >
-            {BITRATES.map(b => (
-              <option key={b} value={b}>{b} kbps</option>
-            ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <p style={sectionLabel}>Bitrate</p>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <select style={selectStyle} value={bitrate} onChange={(e) => setBitrate(e.target.value)}>
+            {BITRATES.map((b) => <option key={b} value={b}>{b} kbps</option>)}
           </select>
           <button
-            className={btnPrimary}
+            style={btn("var(--color-text)", "var(--color-bg)")}
             disabled={!!sending}
             onClick={() => send("set_bitrate", { bitrate })}
           >
@@ -137,20 +164,14 @@ export function RemoteCommandPanel({ device }: Props) {
       </div>
 
       {/* Resolução */}
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Resolução</p>
-        <div className="flex gap-2 items-center flex-wrap">
-          <select
-            className="rounded-md border border-border bg-background px-3 py-2 text-sm"
-            value={resolution}
-            onChange={e => setResolution(e.target.value)}
-          >
-            {RESOLUTIONS.map(r => (
-              <option key={r} value={r}>{r}</option>
-            ))}
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <p style={sectionLabel}>Resolução</p>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+          <select style={selectStyle} value={resolution} onChange={(e) => setResolution(e.target.value)}>
+            {RESOLUTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
           </select>
           <button
-            className={btnPrimary}
+            style={btn("var(--color-text)", "var(--color-bg)")}
             disabled={!!sending}
             onClick={() => send("set_resolution", { resolution })}
           >
@@ -160,39 +181,50 @@ export function RemoteCommandPanel({ device }: Props) {
       </div>
 
       {error && (
-        <p className="text-sm text-red-500">{error}</p>
+        <p style={{ fontSize: "0.875rem", color: "var(--color-error, #ef4444)" }}>{error}</p>
       )}
 
       {/* Histórico */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Histórico</p>
+      <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <p style={sectionLabel}>Histórico</p>
           {!historyLoaded && (
-            <button className="text-xs text-muted-foreground hover:text-foreground" onClick={loadHistory}>
+            <button
+              onClick={loadHistory}
+              style={{ background: "none", border: "none", fontSize: "0.75rem", color: "var(--color-text-muted)", cursor: "pointer" }}
+            >
               Carregar
             </button>
           )}
         </div>
         {history.length === 0 && historyLoaded && (
-          <p className="text-sm text-muted-foreground">Nenhum comando enviado ainda.</p>
+          <p style={{ fontSize: "0.875rem", color: "var(--color-text-muted)" }}>Nenhum comando enviado ainda.</p>
         )}
-        {history.map(row => (
-          <div key={row.id} className="flex items-center justify-between text-xs border-b border-border py-2 last:border-0">
+        {history.map((row) => (
+          <div
+            key={row.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              fontSize: "0.75rem",
+              borderBottom: "1px solid var(--color-border)",
+              padding: "0.5rem 0",
+            }}
+          >
             <div>
-              <span className="font-mono font-medium">{row.command}</span>
+              <span style={{ fontFamily: "monospace", fontWeight: 500 }}>{row.command}</span>
               {row.payload && (
-                <span className="ml-2 text-muted-foreground">
-                  {Object.entries(row.payload as Record<string, string>)
-                    .map(([k, v]) => `${k}=${v}`)
-                    .join(" ")}
+                <span style={{ marginLeft: "0.5rem", color: "var(--color-text-muted)" }}>
+                  {Object.entries(row.payload as Record<string, string>).map(([k, v]) => `${k}=${v}`).join(" ")}
                 </span>
               )}
             </div>
-            <div className="flex items-center gap-3">
-              <span className={STATUS_CLASS[row.status] ?? "text-muted-foreground"}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <span style={{ color: STATUS_COLOR[row.status] ?? "var(--color-text-muted)" }}>
                 {STATUS_LABEL[row.status] ?? row.status}
               </span>
-              <span className="text-muted-foreground">{formatIssuedAt(row.issued_at)}</span>
+              <span style={{ color: "var(--color-text-muted)" }}>{formatIssuedAt(row.issued_at)}</span>
             </div>
           </div>
         ))}
