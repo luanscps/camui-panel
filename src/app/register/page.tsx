@@ -44,8 +44,8 @@ export default function RegisterPage() {
       return
     }
 
-    // 2. Criar licença BASIC automática via RPC (migration já aplicada no Supabase)
     if (signUpData.user) {
+      // 2. Criar licença BASIC automática via RPC (tipada no database.types.ts)
       try {
         const { error: rpcError } = await supabase.rpc('create_default_license', {
           p_user_id: signUpData.user.id,
